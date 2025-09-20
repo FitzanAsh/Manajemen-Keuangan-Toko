@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Toko Kelontong</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        html, body, #root { height: 100%; }
+        body { font-family: 'Inter', sans-serif; }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #6366f1;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #report-content, #report-content * {
+                visibility: visible;
+            }
+            #report-content {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 2rem;
+                margin: 0;
+            }
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="loader"></div>
+        </div>
+    </div>
+
+    <!-- React and Babel for JSX -->
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- React Component Code -->
+    <script type="text/babel" data-type="module">
+        
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, Timestamp, setLogLevel } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+        import { getAuth, signOut } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
+
+        // Konfigurasi Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFWsaoDs9FdHv3vArCQzjwEim18g7qKTU",
+            authDomain: "manajemen-keuangan-toko-98b51.firebaseapp.com",
+            projectId: "manajemen-keuangan-toko-98b51",
+            storageBucket: "manajemen-keuangan-toko-98b51.firebasestorage.app",
+            messagingSenderId: "873328631553",
+            appId: "1:873328631553:web:347f9c74669db01cee0500",
+            measurementId: "G-0NY5L2KYJ3"
+        };
+
+        let app;
+        let auth; // <- Variabel untuk menyimpan instance auth
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app); // <- Inisialisasi auth
+        } catch(e) {
+            console.error("Error initializing Firebase. Please check your firebaseConfig.", e);
+            const root = document.getElementById('root');
+            root.innerHTML = `<div class="flex items-center justify-center min-h-screen"><div class="text-center p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                <h3 class="font-bold">Error Konfigurasi Firebase!</h3>
+                <p>Silakan periksa \`firebaseConfig\` di dalam kode dan pastikan sudah diisi dengan benar.</p>
+            </div></div>`;
+        }
+        
+        const db = getFirestore(app);
+        setLogLevel('debug');
+
+        // --- Ikon SVG ---
+        const Plus = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
+        const Package = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16.5 9.4l-9-5.19"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg>;
+        const TrendingUp = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>;
+        const TrendingDown = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>;
+        const DollarSign = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>;
+        const Edit2 = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>;
+        const FileText = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>;
+        const Trash2 = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="m8 6 4-4 4 4"/></svg>;
+        const Check = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>;
+        const X = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
+        const LayoutDashboard = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>;
+        const ArrowLeftRight = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>;
+        const Menu = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>;
+        const LogOut = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>;
+        const BarChart3 = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>;
+        const PieChart = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>;
+        
+        // --- Komponen Modal Kustom ---
+        const CustomModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText, cancelText, isAlert }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
+                        <h3 className="text-lg font-bold text-gray-800">{title}</h3>
+                        <p className="text-sm text-gray-600 mt-2 mb-4">{message}</p>
+                        <div className="flex justify-end space-x-2">
+                            {!isAlert && onCancel && <button onClick={onCancel} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">{cancelText || 'Batal'}</button>}
+                            <button onClick={onConfirm} className={`px-4 py-2 text-white rounded-md ${isAlert ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-red-600 hover:bg-red-700'}`}>{confirmText || 'Hapus'}</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // --- Komponen Grafik Tren Keuangan ---
+        const FinancialCharts = ({ transactions, isDashboard = false, setActiveView }) => {
+            const { useRef, useEffect, useState } = React;
+            const chartRef = useRef(null);
+            const [timeRange, setTimeRange] = useState('monthly');
+            const chartTitle = isDashboard ? 'Analisis Keuangan' : 'Analisis Tren Keuangan';
+
+            useEffect(() => {
+                if(chartRef.current.chart) {
+                    chartRef.current.chart.destroy();
+                }
+
+                if (!transactions.length) {
+                    const ctx = chartRef.current.getContext('2d');
+                    ctx.clearRect(0, 0, chartRef.current.width, chartRef.current.height);
+                    ctx.font = "16px Inter";
+                    ctx.fillStyle = "#9ca3af";
+                    ctx.textAlign = "center";
+                    ctx.fillText("Belum ada data transaksi untuk ditampilkan.", chartRef.current.width / 2, chartRef.current.height / 2);
+                    return;
+                };
+                
+                const currentRange = isDashboard ? 'monthly' : timeRange;
+                const chartData = prepareChartData(transactions, currentRange);
+                
+                const ctx = chartRef.current.getContext('2d');
+                const gradientGreen = ctx.createLinearGradient(0, 0, 0, 300);
+                gradientGreen.addColorStop(0, 'rgba(34, 197, 94, 0.4)');
+                gradientGreen.addColorStop(1, 'rgba(34, 197, 94, 0)');
+
+                const gradientRed = ctx.createLinearGradient(0, 0, 0, 300);
+                gradientRed.addColorStop(0, 'rgba(239, 68, 68, 0.4)');
+                gradientRed.addColorStop(1, 'rgba(239, 68, 68, 0)');
+                
+                const newChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: chartData.labels,
+                        datasets: [
+                            {
+                                label: 'Pemasukan',
+                                data: chartData.income,
+                                borderColor: 'rgb(34, 197, 94)',
+                                backgroundColor: gradientGreen,
+                                tension: 0.4,
+                                fill: true,
+                                pointBackgroundColor: 'rgb(34, 197, 94)',
+                                pointBorderColor: '#fff',
+                                pointHoverRadius: 7,
+                            },
+                            {
+                                label: 'Pengeluaran',
+                                data: chartData.expenses,
+                                borderColor: 'rgb(239, 68, 68)',
+                                backgroundColor: gradientRed,
+                                tension: 0.4,
+                                fill: true,
+                                pointBackgroundColor: 'rgb(239, 68, 68)',
+                                pointBorderColor: '#fff',
+                                pointHoverRadius: 7,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                align: 'end',
+                                labels: {
+                                    usePointStyle: true,
+                                    boxWidth: 8
+                                }
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed.y !== null) {
+                                            label += new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(context.parsed.y);
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false, // Menyembunyikan grid vertikal
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    drawBorder: false,
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        if (value >= 1000000) return 'Rp' + (value / 1000000) + ' Jt';
+                                        if (value >= 1000) return 'Rp' + (value / 1000) + ' Rb';
+                                        return 'Rp' + value;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                chartRef.current.chart = newChart;
+                
+                return () => {
+                   if(newChart) newChart.destroy();
+                };
+            }, [transactions, timeRange, isDashboard]);
+            
+            const prepareChartData = (transactions, range) => {
+                const now = new Date();
+                let startDate, endDate;
+                let labels = [];
+                let formatFn;
+
+                switch (range) {
+                    case 'weekly':
+                        startDate = new Date(now);
+                        startDate.setDate(now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1));
+                        startDate.setHours(0, 0, 0, 0);
+                        endDate = new Date(startDate);
+                        endDate.setDate(startDate.getDate() + 6);
+                        endDate.setHours(23, 59, 59, 999);
+                        labels = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+                        formatFn = (date) => date.getDay() === 0 ? 6 : date.getDay() - 1;
+                        break;
+                    case 'monthly':
+                        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                        endDate.setHours(23, 59, 59, 999);
+                        
+                        const tempLabels = [];
+                        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                            tempLabels.push(new Date(d));
+                        }
+                        labels = tempLabels.map(d => d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }));
+
+                        formatFn = (date) => date.getDate() - 1;
+                        break;
+                    case 'yearly':
+                        startDate = new Date(now.getFullYear(), 0, 1);
+                        endDate = new Date(now.getFullYear(), 11, 31);
+                        endDate.setHours(23, 59, 59, 999);
+                        labels = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+                        formatFn = (date) => date.getMonth();
+                        break;
+                }
+
+                const filtered = transactions.filter(t => {
+                    const tDate = t.timestamp.toDate();
+                    return tDate >= startDate && tDate <= endDate;
+                });
+
+                const income = Array(labels.length).fill(0);
+                const expenses = Array(labels.length).fill(0);
+
+                filtered.forEach(t => {
+                    const tDate = t.timestamp.toDate();
+                    const index = formatFn(tDate);
+                    if (index >= 0 && index < labels.length) {
+                        if (t.type === 'income') {
+                            income[index] += t.amount;
+                        } else {
+                            expenses[index] += t.amount;
+                        }
+                    }
+                });
+                
+                return { labels, income, expenses };
+            };
+            
+            return (
+                <div className="bg-white rounded-xl shadow-lg p-6 h-full flex flex-col">
+                    <div className="mb-2">
+                        <div className="flex justify-between items-start">
+                             <h2 className="text-xl font-bold text-gray-800">{chartTitle}</h2>
+                             {isDashboard ? ( 
+                                <button onClick={() => setActiveView('analytics')} className="text-sm font-medium text-indigo-600 hover:text-indigo-800 flex items-center">
+                                    Lihat Detail <span className="ml-1 font-bold">&gt;</span>
+                                </button>
+                             ) : ( 
+                                <select 
+                                    value={timeRange} 
+                                    onChange={(e) => setTimeRange(e.target.value)}
+                                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
+                                >
+                                    <option value="weekly">Mingguan</option>
+                                    <option value="monthly">Bulanan</option>
+                                    <option value="yearly">Tahunan</option>
+                                </select>
+                             )}
+                        </div>
+                        {isDashboard && <p className="text-center text-sm text-gray-500 mt-1">Tren Keuangan sebulan terakhir</p>}
+                    </div>
+                    <div className="flex-grow h-80">
+                         <canvas ref={chartRef}></canvas>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Komponen Grafik Kategori ---
+        const CategoryChart = ({ transactions }) => {
+            const { useRef, useEffect } = React;
+            const chartRef = useRef(null);
+            
+            useEffect(() => {
+                if(chartRef.current.chart) {
+                    chartRef.current.chart.destroy();
+                }
+
+                const expenseData = prepareCategoryData(transactions, 'expense');
+
+                if (expenseData.labels.length === 0) {
+                     const ctx = chartRef.current.getContext('2d');
+                    ctx.clearRect(0, 0, chartRef.current.width, chartRef.current.height);
+                    ctx.font = "16px Inter";
+                    ctx.fillStyle = "#9ca3af";
+                    ctx.textAlign = "center";
+                    ctx.fillText("Tidak ada data pengeluaran.", chartRef.current.width / 2, chartRef.current.height / 2);
+                    return;
+                }
+                
+                const ctx = chartRef.current.getContext('2d');
+                
+                const newChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: expenseData.labels,
+                        datasets: [{
+                            data: expenseData.values,
+                            backgroundColor: [
+                                'rgba(239, 68, 68, 0.8)', 'rgba(249, 115, 22, 0.8)', 'rgba(245, 158, 11, 0.8)',
+                                'rgba(234, 179, 8, 0.8)', 'rgba(132, 204, 22, 0.8)', 'rgba(34, 197, 94, 0.8)',
+                                'rgba(59, 130, 246, 0.8)', 'rgba(139, 92, 246, 0.8)'
+                            ],
+                            borderColor: '#fff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    usePointStyle: true,
+                                    boxWidth: 8,
+                                    padding: 20
+                                }
+                            }
+                        }
+                    }
+                });
+                 chartRef.current.chart = newChart;
+                 return () => {
+                    if(newChart) newChart.destroy();
+                 }
+            }, [transactions]);
+            
+            const prepareCategoryData = (transactions, type) => {
+                const categoryTotals = {};
+                
+                transactions
+                    .filter(t => t.type === type)
+                    .forEach(transaction => {
+                        if (!categoryTotals[transaction.category]) {
+                            categoryTotals[transaction.category] = 0;
+                        }
+                        categoryTotals[transaction.category] += transaction.amount;
+                    });
+                
+                return {
+                    labels: Object.keys(categoryTotals),
+                    values: Object.values(categoryTotals)
+                };
+            };
+            
+            return (
+                <div className="h-80">
+                     <canvas ref={chartRef}></canvas>
+                </div>
+            );
+        };
+
+        // --- Komponen Monitoring Stok ---
+        const StockMonitor = ({ products }) => {
+            const lowStockItems = products.filter(p => p.stockInBaseUnit < p.minStock);
+            
+            return (
+                <div className="bg-white rounded-xl shadow-lg p-6">
+                    <h2 className="text-xl font-bold text-gray-800 mb-4">Monitoring Stok Rendah</h2>
+                    {lowStockItems.length === 0 ? (
+                        <div className="text-center py-4">
+                            <div className="text-green-500 w-12 h-12 mx-auto mb-2"><Check /></div>
+                            <p className="text-gray-500">Stok semua barang aman</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3 max-h-64 overflow-y-auto">
+                            {lowStockItems.map((item) => (
+                                <div key={item.id} className="flex justify-between items-center p-3 bg-rose-50 rounded-lg border border-rose-200">
+                                    <div>
+                                        <p className="font-medium text-gray-800">{item.name}</p>
+                                        <p className="text-sm text-red-600 font-semibold">Stok: {item.stockInBaseUnit} {item.baseUnit} (Min: {item.minStock})</p>
+                                    </div>
+                                    <button className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700">
+                                        Restock
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+        
+        // --- Komponen Manajemen Produk ---
+        const ProductManagement = ({ products }) => {
+            const { useState } = React;
+            const [isAdding, setIsAdding] = useState(false);
+            const [modalInfo, setModalInfo] = useState({ isOpen: false });
+            
+            const [newProduct, setNewProduct] = useState({
+                name: '',
+                baseUnit: '',
+                stockInBaseUnit: '',
+                minStock: '',
+                variants: [{ id: 1, unitName: '', price: '', stockConversion: '' }]
+            });
+            
+            const formatRupiah = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num || 0);
+
+            const handleNewProductChange = (e) => {
+                const { name, value } = e.target;
+                setNewProduct(prev => ({ ...prev, [name]: value }));
+            };
+
+            const handleVariantChange = (id, e) => {
+                const { name, value } = e.target;
+                const updatedVariants = newProduct.variants.map(v => v.id === id ? { ...v, [name]: value } : v);
+                setNewProduct(prev => ({ ...prev, variants: updatedVariants }));
+            };
+
+            const addVariant = () => {
+                const newId = newProduct.variants.length ? Math.max(...newProduct.variants.map(v => v.id)) + 1 : 1;
+                setNewProduct(prev => ({...prev, variants: [...prev.variants, { id: newId, unitName: '', price: '', stockConversion: '' }]}));
+            };
+            
+            const removeVariant = (id) => {
+                if(newProduct.variants.length > 1){
+                    setNewProduct(prev => ({...prev, variants: prev.variants.filter(v => v.id !== id)}));
+                }
+            };
+
+            const handleSaveNewProduct = async () => {
+                if(!newProduct.name || !newProduct.baseUnit || !newProduct.stockInBaseUnit || !newProduct.minStock || newProduct.variants.some(v => !v.unitName || !v.price || !v.stockConversion)) {
+                     setModalInfo({ isOpen: true, title: 'Input Tidak Lengkap', message: 'Mohon lengkapi semua field produk dan varian.', onConfirm: () => setModalInfo({ isOpen: false }), confirmText: 'OK', isAlert: true });
+                    return;
+                }
+
+                const dataToSave = {
+                    name: newProduct.name,
+                    baseUnit: newProduct.baseUnit,
+                    stockInBaseUnit: parseInt(newProduct.stockInBaseUnit),
+                    minStock: parseInt(newProduct.minStock),
+                    variants: newProduct.variants.map(v => ({
+                        unitName: v.unitName,
+                        price: parseFloat(v.price),
+                        stockConversion: parseFloat(v.stockConversion)
+                    }))
+                };
+
+                await addDoc(collection(db, 'products'), dataToSave);
+                
+                setIsAdding(false);
+                setNewProduct({ name: '', baseUnit: '', stockInBaseUnit: '', minStock: '', variants: [{ id: 1, unitName: '', price: '', stockConversion: '' }]});
+            };
+
+            const handleDeleteProduct = (id) => {
+                setModalInfo({
+                    isOpen: true,
+                    title: 'Konfirmasi Hapus',
+                    message: 'Apakah Anda yakin ingin menghapus produk ini? Ini tidak akan bisa dikembalikan.',
+                    onConfirm: async () => {
+                        await deleteDoc(doc(db, 'products', id));
+                        setModalInfo({ isOpen: false });
+                    },
+                    onCancel: () => setModalInfo({ isOpen: false })
+                });
+            };
+
+            return (
+                <div className="bg-white rounded-xl shadow-lg p-6">
+                    <CustomModal {...modalInfo} />
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-bold text-gray-800">Daftar Produk</h2>
+                        <button onClick={() => setIsAdding(!isAdding)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">{isAdding ? 'Batal' : 'Tambah Produk Baru'}</button>
+                    </div>
+
+                    {isAdding && (
+                        <div className="p-4 bg-indigo-50 rounded-lg mb-6 space-y-4 animate-fade-in">
+                            <h3 className="text-lg font-semibold text-gray-700 border-b pb-2">Detail Produk Utama</h3>
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Nama Produk</label><input type="text" name="name" value={newProduct.name} onChange={handleNewProductChange} className="w-full px-3 py-2 border rounded-md"/></div>
+                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Satuan Dasar</label><input type="text" name="baseUnit" value={newProduct.baseUnit} onChange={handleNewProductChange} placeholder="Contoh: Kilogram, Pcs" className="w-full px-3 py-2 border rounded-md"/></div>
+                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Stok Awal (dlm Satuan Dasar)</label><input type="number" name="stockInBaseUnit" value={newProduct.stockInBaseUnit} onChange={handleNewProductChange} className="w-full px-3 py-2 border rounded-md"/></div>
+                                 <div><label className="block text-sm font-medium text-gray-700 mb-1">Stok Minimum</label><input type="number" name="minStock" value={newProduct.minStock} onChange={handleNewProductChange} className="w-full px-3 py-2 border rounded-md"/></div>
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-700 border-b pb-2 pt-4">Varian Produk (Satuan Jual)</h3>
+                            {newProduct.variants.map((variant, index) => (
+                                <div key={variant.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end p-3 bg-white rounded-md border">
+                                    <div className="md:col-span-1"><label className="block text-sm font-medium text-gray-700 mb-1">Nama Varian/Satuan</label><input type="text" name="unitName" placeholder="Contoh: Karung" value={variant.unitName} onChange={e => handleVariantChange(variant.id, e)} className="w-full px-3 py-2 border rounded-md"/></div>
+                                    <div className="md:col-span-1"><label className="block text-sm font-medium text-gray-700 mb-1">Harga Varian (Rp)</label><input type="number" name="price" placeholder="280000" value={variant.price} onChange={e => handleVariantChange(variant.id, e)} className="w-full px-3 py-2 border rounded-md"/></div>
+                                    <div className="md:col-span-1"><label className="block text-sm font-medium text-gray-700 mb-1">Isi per Varian</label><input type="number" name="stockConversion" placeholder="Contoh: 20" value={variant.stockConversion} onChange={e => handleVariantChange(variant.id, e)} className="w-full px-3 py-2 border rounded-md"/><p className="text-xs text-gray-500 mt-1">Berapa {newProduct.baseUnit || 'Satuan Dasar'} dalam 1 {variant.unitName || 'Varian ini'}</p></div>
+                                    <div className="flex items-center">
+                                         {newProduct.variants.length > 1 && <button onClick={() => removeVariant(variant.id)} className="p-2 text-red-500 hover:bg-red-100 rounded-full"><Trash2 /></button>}
+                                    </div>
+                                </div>
+                            ))}
+                             <div className="flex justify-between items-center pt-2">
+                                <button onClick={addVariant} className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600"><Plus /> <span>Tambah Varian</span></button>
+                                <button onClick={handleSaveNewProduct} className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700">Simpan Produk Baru</button>
+                             </div>
+                        </div>
+                    )}
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="border-b">
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama Produk</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Varian & Harga</th>
+                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Stok (Satuan Dasar)</th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {products.map(p => (
+                                    <tr key={p.id}>
+                                        <td className="px-4 py-3 font-medium">{p.name}</td>
+                                        <td className="px-4 py-3 text-sm">
+                                            {p.variants.map((v, i) => (
+                                                <div key={i} className="flex justify-between">
+                                                    <span>{v.unitName}</span>
+                                                    <span className="font-semibold">{formatRupiah(v.price)}</span>
+                                                </div>
+                                            ))}
+                                        </td>
+                                        <td className="px-4 py-3 text-right font-semibold text-lg">{p.stockInBaseUnit} <span className="text-sm font-normal text-gray-500">{p.baseUnit}</span></td>
+                                        <td className="px-4 py-3 text-center">
+                                            <div className="flex items-center justify-center space-x-2">
+                                                <button disabled className="text-blue-300 cursor-not-allowed"><Edit2 /></button>
+                                                <button onClick={() => handleDeleteProduct(p.id)} className="text-red-600 hover:text-red-800"><Trash2 /></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Komponen Sidebar ---
+        const Sidebar = ({ activeView, setActiveView, isSidebarOpen }) => {
+            const navItems = [
+                { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard /> },
+                { id: 'transactions', label: 'Transaksi', icon: <ArrowLeftRight /> },
+                { id: 'products', label: 'Produk', icon: <Package /> },
+                { id: 'analytics', label: 'Analisis', icon: <BarChart3 /> },
+                { id: 'reports', label: 'Laporan', icon: <PieChart /> },
+            ];
+
+            const handleLogout = async () => {
+                console.log("Proses logout...");
+                try {
+                    await signOut(auth);
+                    console.log("Logout berhasil. Mengarahkan ke halaman login.");
+                    // Redirect ke halaman login
+                    window.location.href = '../index.html'; // Gunakan ../ karena dashboard ada di folder pages
+                } catch (error) {
+                    console.error("Error saat logout:", error);
+                    // Optional: Tampilkan pesan error ke pengguna
+                    alert('Terjadi kesalahan saat logout. Silakan coba lagi.');
+                }
+            }
+
+            return (
+                <aside className={`absolute top-0 left-0 h-full bg-white shadow-lg transition-transform duration-300 ease-in-out z-40 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 w-64 flex flex-col no-print`}>
+                  <div className="flex items-center justify-center p-6 border-b">
+                      <div className="flex items-center">
+                          {/* Ganti ikon dan teks dengan gambar */}
+                          <img src="../images/Tokoku.png" alt="Logo Tokoku" className="w-20 h-20 object-contain" />
+                          {/* Hapus atau comment teks "TokoKu" jika ingin hanya gambar saja */}
+                          {/* <h1 className="text-xl font-bold text-gray-800 ml-3">TokoKu</h1> */}
+                      </div>
+                  </div>
+                    <nav className="p-4 flex-1">
+                        <ul>
+                            {navItems.map(item => (
+                                <li key={item.id} className="mb-2">
+                                    <button
+                                        onClick={() => setActiveView(item.id)}
+                                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-sm font-medium ${activeView === item.id ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                                    >
+                                        <div className="w-5 h-5">{item.icon}</div>
+                                        <span>{item.label}</span>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </nav>
+                     <div className="p-4 border-t">
+                        <button
+                            onClick={handleLogout}
+                            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-sm font-medium text-red-500 hover:bg-red-50"
+                        >
+                            <div className="w-5 h-5"><LogOut /></div>
+                            <span>Logout</span>
+                        </button>
+                    </div>
+                </aside>
+            );
+        };
+
+        // --- Komponen Laporan ---
+        const ReportsPage = ({ transactions }) => {
+            const { useState, useMemo } = React;
+            const [reportType, setReportType] = useState('monthly');
+            const [year, setYear] = useState(new Date().getFullYear());
+            const [month, setMonth] = useState(new Date().getMonth());
+            const [generatedReport, setGeneratedReport] = useState(null);
+            const [showDetails, setShowDetails] = useState(false);
+
+            const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+            
+            const formatRupiah = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num || 0);
+
+            const handleGenerateReport = () => {
+                const yearNum = parseInt(year);
+                let filteredTransactions = [];
+
+                if(reportType === 'monthly') {
+                    const monthNum = parseInt(month);
+                    filteredTransactions = transactions.filter(t => {
+                        const txDate = t.timestamp.toDate();
+                        return txDate.getFullYear() === yearNum && txDate.getMonth() === monthNum;
+                    });
+                } else { // yearly
+                    filteredTransactions = transactions.filter(t => t.timestamp.toDate().getFullYear() === yearNum);
+                }
+
+                const incomeTransactions = filteredTransactions.filter(t => t.type === 'income');
+                const expenseTransactions = filteredTransactions.filter(t => t.type === 'expense');
+
+                const totalIncome = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
+                const totalExpense = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
+                const profit = totalIncome - totalExpense;
+
+                setGeneratedReport({
+                    title: reportType === 'monthly' ? `Laporan Keuangan - ${months[month]} ${year}` : `Laporan Keuangan - Tahun ${year}`,
+                    incomeTransactions,
+                    expenseTransactions,
+                    summary: { totalIncome, totalExpense, profit }
+                });
+                setShowDetails(false); // Reset detail view on new report
+            };
+
+            const exportToCsv = () => {
+                if (!generatedReport) return;
+                const headers = ["Tanggal", "Kategori", "Keterangan", "Tipe", "Jumlah"];
+                const data = [...generatedReport.incomeTransactions, ...generatedReport.expenseTransactions].map(t => ({
+                    tanggal: t.date,
+                    kategori: t.category,
+                    keterangan: t.description,
+                    tipe: t.type === 'income' ? 'Pemasukan' : 'Pengeluaran',
+                    jumlah: t.amount
+                }));
+
+                const csvRows = [headers.join(',')];
+                for (const row of data) {
+                    const values = headers.map(header => {
+                        const escaped = ('' + row[header.toLowerCase()]).replace(/"/g, '\\"');
+                        return `"${escaped}"`;
+                    });
+                    csvRows.push(values.join(','));
+                }
+                
+                const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.setAttribute('hidden', '');
+                a.setAttribute('href', url);
+                a.setAttribute('download', `${generatedReport.title}.csv`);
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            };
+
+            const printReport = () => {
+                window.print();
+            };
+
+            const renderTable = (data, title) => (
+                <div>
+                    <h3 className="text-xl font-semibold mb-2 mt-4 text-gray-700">{title}</h3>
+                    <table className="w-full text-sm text-left text-gray-500">
+                        <thead className="text-xs text-gray-700 uppercase bg-gray-100">
+                            <tr>
+                                <th scope="col" className="px-6 py-3">Tanggal</th>
+                                <th scope="col" className="px-6 py-3">Keterangan</th>
+                                <th scope="col" className="px-6 py-3 text-right">Jumlah</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {data.map(tx => (
+                                <tr key={tx.id} className="bg-white border-b">
+                                    <td className="px-6 py-4">{tx.date}</td>
+                                    <td className="px-6 py-4">{tx.description}</td>
+                                    <td className="px-6 py-4 text-right">{formatRupiah(tx.amount)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            );
+
+            return (
+                <div className="space-y-6">
+                    <div className="bg-white rounded-xl shadow-lg p-6 no-print">
+                        <h2 className="text-xl font-bold text-gray-800 mb-4">Buat Laporan Keuangan</h2>
+                        <div className="flex items-center space-x-4">
+                            <select value={reportType} onChange={e => setReportType(e.target.value)} className="px-4 py-2 border rounded-lg">
+                                <option value="monthly">Bulanan</option>
+                                <option value="yearly">Tahunan</option>
+                            </select>
+                            {reportType === 'monthly' && (
+                                <select value={month} onChange={e => setMonth(e.target.value)} className="px-4 py-2 border rounded-lg">
+                                    {months.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                                </select>
+                            )}
+                            <input type="number" value={year} onChange={e => setYear(e.target.value)} className="px-4 py-2 border rounded-lg w-28" />
+                            <button onClick={handleGenerateReport} className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Buat Laporan</button>
+                        </div>
+                    </div>
+                    
+                    {generatedReport && (
+                        <div className="bg-white rounded-xl shadow-lg p-6">
+                             <div className="mb-6">
+                                <h2 className="text-2xl font-bold text-gray-800">{generatedReport.title}</h2>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 text-center">
+                                    <div className="p-4 bg-green-50 rounded-lg"><h3 className="font-semibold text-green-700">Total Pemasukan</h3><p className="text-2xl font-bold">{formatRupiah(generatedReport.summary.totalIncome)}</p></div>
+                                    <div className="p-4 bg-red-50 rounded-lg"><h3 className="font-semibold text-red-700">Total Pengeluaran</h3><p className="text-2xl font-bold">{formatRupiah(generatedReport.summary.totalExpense)}</p></div>
+                                    <div className={`p-4 rounded-lg ${generatedReport.summary.profit >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}><h3 className={`font-semibold ${generatedReport.summary.profit >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>Laba / Rugi</h3><p className="text-2xl font-bold">{formatRupiah(generatedReport.summary.profit)}</p></div>
+                                </div>
+                                <div className="text-center mt-6 no-print">
+                                    <button onClick={() => setShowDetails(!showDetails)} className="text-indigo-600 font-semibold">{showDetails ? 'Sembunyikan Rincian' : 'Tampilkan Rincian Transaksi'}</button>
+                                </div>
+                             </div>
+
+                             {showDetails && (
+                                <div id="report-content">
+                                    <div className="p-6 flex justify-between items-center no-print border-t mt-6">
+                                        <h2 className="text-xl font-bold text-gray-800">Rincian Laporan</h2>
+                                        <div className="space-x-2">
+                                            <button onClick={exportToCsv} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Export CSV</button>
+                                            <button onClick={printReport} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Cetak / Simpan PDF</button>
+                                        </div>
+                                    </div>
+                                    
+                                    {renderTable(generatedReport.incomeTransactions, 'Rincian Pemasukan')}
+                                    {renderTable(generatedReport.expenseTransactions, 'Rincian Pengeluaran')}
+                                </div>
+                             )}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+        
+        // --- Komponen Utama Aplikasi ---
+        const DashboardApp = () => {
+            const { useState, useEffect, useMemo } = React;
+
+            const [transactions, setTransactions] = useState([]);
+            const [products, setProducts] = useState([]);
+            
+            const [formData, setFormData] = useState({
+                type: 'income',
+                category: '',
+                description: '',
+                amount: '',
+                date: new Date().toISOString().split('T')[0],
+                productName: '',
+                quantity: '',
+                unit: '',
+            });
+            const [serviceValue, setServiceValue] = useState('');
+
+            const [editingId, setEditingId] = useState(null);
+            const [editData, setEditData] = useState({});
+            const [activeTab, setActiveTab] = useState('input');
+            const [modalInfo, setModalInfo] = useState({ isOpen: false });
+            const [activeView, setActiveView] = useState('dashboard');
+            const [isSidebarOpen, setSidebarOpen] = useState(false);
+
+            // Data & Konfigurasi
+            const categories = {
+                income: [ { name: 'Penjualan Barang', hasProducts: true }, { name: 'Penjualan Pulsa', hasProducts: false }, { name: 'Penjualan Token Listrik', hasProducts: false }, { name: 'Lainnya', hasProducts: false } ],
+                expense: [ { name: 'Kulakan Barang', hasProducts: true }, { name: 'Listrik & Air', hasProducts: false }, { name: 'Sewa Toko', hasProducts: false }, { name: 'Gaji Karyawan', hasProducts: false }, { name: 'Transportasi', hasProducts: false }, { name: 'Lainnya', hasProducts: false } ]
+            };
+            const pulsaOptions = [
+                { value: 5000, display: '5.000' }, { value: 10000, display: '10.000' },
+                { value: 20000, display: '20.000' }, { value: 25000, display: '25.000' },
+                { value: 50000, display: '50.000' }, { value: 100000, display: '100.000' },
+            ];
+            const PULSA_ADMIN_FEE = 2000;
+            const TOKEN_ADMIN_FEE = 2500;
+            
+            // Listener Firestore
+            useEffect(() => {
+                const unsubTransactions = onSnapshot(query(collection(db, 'transactions')), (snapshot) => {
+                    let fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), date: doc.data().timestamp?.toDate().toISOString().split('T')[0] || '' }));
+                    fetched.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+                    setTransactions(fetched);
+                });
+                const unsubProducts = onSnapshot(query(collection(db, 'products')), (snapshot) => {
+                    let fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    fetched.sort((a, b) => a.name.localeCompare(b.name));
+                    setProducts(fetched);
+                });
+                return () => { unsubTransactions(); unsubProducts(); };
+            }, []);
+            
+            // Memoized values
+            const selectedCategoryInfo = useMemo(() => categories[formData.type].find(c => c.name === formData.category), [formData.type, formData.category]);
+            const selectedProductInfo = useMemo(() => products.find(p => p.name === formData.productName), [formData.productName, products]);
+            
+            // Efek untuk otomatisasi form
+            useEffect(() => {
+                const { category } = formData;
+                const nominal = parseInt(serviceValue) || 0;
+                
+                if (category === 'Penjualan Pulsa' && nominal > 0) {
+                    const finalAmount = nominal + PULSA_ADMIN_FEE;
+                    const description = `Penjualan Pulsa ${nominal.toLocaleString('id-ID')}`;
+                    setFormData(prev => ({ ...prev, amount: finalAmount, description }));
+                } else if (category === 'Penjualan Token Listrik' && nominal > 0) {
+                    const finalAmount = nominal + TOKEN_ADMIN_FEE;
+                    const description = `Penjualan Token Listrik Rp ${nominal.toLocaleString('id-ID')}`;
+                    setFormData(prev => ({ ...prev, amount: finalAmount, description }));
+                } else if (selectedCategoryInfo?.hasProducts && selectedProductInfo && formData.unit && formData.quantity > 0) {
+                    const variant = selectedProductInfo.variants.find(v => v.unitName === formData.unit);
+                    if (variant) {
+                        const totalAmount = variant.price * parseFloat(formData.quantity);
+                        const autoDescription = `${selectedProductInfo.name} (${formData.quantity} ${formData.unit})`;
+                        setFormData(prev => ({ ...prev, amount: totalAmount, description: autoDescription }));
+                    }
+                }
+            }, [serviceValue, formData.quantity, formData.unit, formData.category, formData.productName]);
+
+
+            const handleInputChange = (e) => {
+                const { name, value } = e.target;
+                setFormData(prev => {
+                    const newState = { ...prev, [name]: value };
+                    if (name === 'type' || name === 'category') {
+                        setServiceValue('');
+                        return { ...newState, productName: '', quantity: '', unit: '', description: '', amount: '' };
+                    }
+                    if (name === 'productName') {
+                        return { ...newState, unit: '', amount: '' };
+                    }
+                    return newState;
+                });
+            };
+            
+            const handleSubmit = async () => {
+                if (!db) return;
+                const isServiceSale = formData.category === 'Penjualan Pulsa' || formData.category === 'Penjualan Token Listrik';
+
+                if (!formData.category || !formData.amount || !formData.date || 
+                    (!isServiceSale && selectedCategoryInfo?.hasProducts && (!formData.productName || !formData.quantity || !formData.unit)) || 
+                    (!isServiceSale && !selectedCategoryInfo?.hasProducts && !formData.description) ||
+                    (isServiceSale && !serviceValue)
+                ) {
+                    setModalInfo({ isOpen: true, title: 'Input Tidak Lengkap', message: 'Mohon lengkapi semua field yang wajib diisi!', onConfirm: () => setModalInfo({ isOpen: false }), confirmText: 'OK', isAlert: true });
+                    return;
+                }
+                
+                let newTransaction = {
+                    type: formData.type, category: formData.category, description: formData.description,
+                    amount: parseFloat(formData.amount), timestamp: Timestamp.fromDate(new Date(formData.date + 'T00:00:00')),
+                    isProductTransaction: selectedCategoryInfo?.hasProducts || false,
+                };
+                
+                if (newTransaction.isProductTransaction) {
+                    const variant = selectedProductInfo.variants.find(v => v.unitName === formData.unit);
+                    newTransaction.productDetails = { productId: selectedProductInfo.id, name: formData.productName, quantity: parseFloat(formData.quantity), unit: formData.unit, stockConversion: variant.stockConversion };
+                }
+
+                try {
+                    await addDoc(collection(db, 'transactions'), newTransaction);
+                    if (newTransaction.isProductTransaction) {
+                        const productRef = doc(db, 'products', selectedProductInfo.id);
+                        const stockToDeduct = newTransaction.productDetails.stockConversion * newTransaction.productDetails.quantity;
+                        const newStock = selectedProductInfo.stockInBaseUnit - stockToDeduct;
+                        await updateDoc(productRef, { stockInBaseUnit: newStock });
+                    }
+                    setFormData({ type: 'income', category: '', description: '', amount: '', date: new Date().toISOString().split('T')[0], productName: '', quantity: '', unit: '' });
+                    setServiceValue('');
+                    setActiveTab('history');
+                } catch (error) {
+                    console.error("Error submitting transaction: ", error);
+                }
+            };
+
+            const deleteTransaction = (id) => {
+                // Implement logic to return stock if needed
+                setModalInfo({
+                    isOpen: true, title: 'Konfirmasi Hapus', message: 'Apakah Anda yakin ingin menghapus transaksi ini?',
+                    onConfirm: async () => { await deleteDoc(doc(db, 'transactions', id)); setModalInfo({ isOpen: false }); },
+                    onCancel: () => setModalInfo({ isOpen: false })
+                });
+            };
+
+            const startEdit = (transaction) => { setEditingId(transaction.id); setEditData(transaction); };
+            const cancelEdit = () => { setEditingId(null); setEditData({}); };
+
+            const saveEdit = async () => {
+                const { id, ...dataToSave } = editData;
+                await updateDoc(doc(db, 'transactions', editingId), { ...dataToSave, amount: parseFloat(dataToSave.amount), timestamp: Timestamp.fromDate(new Date(dataToSave.date + 'T00:00:00')) });
+                cancelEdit();
+            };
+
+            const { income, expense, balance } = useMemo(() => {
+                const income = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+                const expense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+                return { income, expense, balance: income - expense };
+            }, [transactions]);
+            
+            const formatRupiah = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num || 0);
+
+            const renderContent = () => {
+                switch(activeView) {
+                    case 'dashboard':
+                        return (<div className="space-y-6">
+                                <div className="bg-white rounded-xl shadow-lg p-6"><h2 className="text-xl font-bold text-gray-800 mb-4">Ringkasan Keuangan</h2><div className="grid grid-cols-1 md:grid-cols-3 gap-4"><div className="bg-green-50 border border-green-200 rounded-lg p-4"><div className="flex items-center justify-between"><div><p className="text-green-600 text-sm font-medium">Total Pemasukan</p><p className="text-2xl font-bold text-green-700">{formatRupiah(income)}</p></div><div className="text-green-500"><TrendingUp /></div></div></div><div className="bg-red-50 border border-red-200 rounded-lg p-4"><div className="flex items-center justify-between"><div><p className="text-red-600 text-sm font-medium">Total Pengeluaran</p><p className="text-2xl font-bold text-red-700">{formatRupiah(expense)}</p></div><div className="text-red-500"><TrendingDown /></div></div></div><div className={`${balance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'} border rounded-lg p-4`}><div className="flex items-center justify-between"><div><p className={`${balance >= 0 ? 'text-blue-600' : 'text-orange-600'} text-sm font-medium`}>Saldo</p><p className={`text-2xl font-bold ${balance >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>{formatRupiah(balance)}</p></div><div className={`${balance >= 0 ? 'text-blue-500' : 'text-orange-500'}`}><DollarSign /></div></div></div></div></div>
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                    <div className="lg:col-span-2"><FinancialCharts transactions={transactions} isDashboard={true} setActiveView={setActiveView} /></div>
+                                    <div className="lg:col-span-1 space-y-6">
+                                        <div className="bg-white rounded-xl shadow-lg p-6">
+                                            <div className="flex justify-between items-center mb-4">
+                                                <h2 className="text-xl font-bold text-gray-800">Distribusi Pengeluaran</h2>
+                                                <button onClick={() => setActiveView('analytics')} className="text-sm font-medium text-indigo-600 hover:text-indigo-800 flex items-center">Lihat Detail <span className="ml-1 font-bold">&gt;</span></button>
+                                            </div>
+                                            <CategoryChart transactions={transactions} />
+                                        </div>
+                                        <StockMonitor products={products} />
+                                    </div>
+                                </div>
+                                <div className="bg-white rounded-xl shadow-lg p-6"><div className="flex justify-between items-center mb-4"><h2 className="text-xl font-bold text-gray-800">Transaksi Terkini</h2><button onClick={() => { setActiveView('transactions'); setActiveTab('history'); }} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">Lihat Semua</button></div><div className="overflow-x-auto">{transactions.slice(0, 5).length === 0 ? <div className="text-center py-8 text-gray-500"><div className="w-12 h-12 mx-auto mb-3 text-gray-300"><FileText /></div><p>Belum ada transaksi terkini</p></div> : <table className="w-full"><thead><tr className="border-b"><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Detail</th><th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Jumlah</th></tr></thead><tbody className="divide-y divide-gray-200">{transactions.slice(0, 5).map(tx => <tr key={tx.id} className="hover:bg-gray-50"><td className="px-4 py-3 text-sm text-gray-900"><div><p className="font-semibold">{tx.description}</p><p className="text-xs text-gray-500">{new Date(tx.date + 'T00:00:00').toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'})}<span className="mx-1">&bull;</span><span className={`font-medium ${ tx.type === 'income' ? 'text-green-700' : 'text-red-700'}`}>{tx.category}</span></p></div></td><td className={`px-4 py-3 text-sm font-medium text-right whitespace-nowrap ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>{tx.type === 'income' ? '+' : '-'} {formatRupiah(tx.amount)}</td></tr>)}</tbody></table>}</div></div>
+                            </div>);
+                    case 'transactions':
+                        const isPulsaSale = formData.category === 'Penjualan Pulsa';
+                        const isTokenSale = formData.category === 'Penjualan Token Listrik';
+                        const isServiceSale = isPulsaSale || isTokenSale;
+                        const isProductSale = selectedCategoryInfo?.hasProducts;
+
+                        return (
+                            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                                <div className="flex border-b"><button onClick={() => setActiveTab('input')} className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'input' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}><div className="flex items-center justify-center space-x-2"><Edit2 width="20" height="20" /><span>Input Transaksi</span></div></button><button onClick={() => setActiveTab('history')} className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'history' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}><div className="flex items-center justify-center space-x-2"><FileText /><span>Riwayat Transaksi</span></div></button></div>
+                                <div className="p-6">
+                                {activeTab === 'input' && <div className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div><label className="block text-sm font-medium text-gray-700 mb-2">Jenis Transaksi</label><select name="type" value={formData.type} onChange={handleInputChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"><option value="income">Pemasukan</option><option value="expense">Pengeluaran</option></select></div>
+                                        <div><label className="block text-sm font-medium text-gray-700 mb-2">Kategori</label><select name="category" value={formData.category} onChange={handleInputChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"><option value="">Pilih Kategori</option>{categories[formData.type].map(cat => <option key={cat.name} value={cat.name}>{cat.name}</option>)}</select></div>
+                                    </div>
+                                    
+                                    {isPulsaSale && <div className="p-4 bg-gray-50 rounded-lg"><label className="block text-sm font-medium text-gray-700 mb-2">Pilih Nominal Pulsa</label><select value={serviceValue} onChange={(e) => setServiceValue(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"><option value="">-- Pilih Nominal --</option>{pulsaOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.display}</option>)}</select></div>}
+                                    {isTokenSale && <div className="p-4 bg-gray-50 rounded-lg"><label className="block text-sm font-medium text-gray-700 mb-2">Nominal Token (Rp)</label><input type="number" value={serviceValue} onChange={(e) => setServiceValue(e.target.value)} placeholder="Contoh: 50000" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"/></div>}
+
+                                    {!isServiceSale && isProductSale && <div className="p-4 bg-gray-50 rounded-lg mt-4 space-y-4"><div className="grid grid-cols-1 md:grid-cols-3 gap-4"><div><label className="block text-sm font-medium text-gray-700 mb-2">Nama Barang</label><select name="productName" value={formData.productName} onChange={handleInputChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"><option value="">Pilih Barang</option>{products.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div><div><label className="block text-sm font-medium text-gray-700 mb-2">Jumlah</label><input type="number" name="quantity" value={formData.quantity} onChange={handleInputChange} placeholder="0" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"/></div><div><label className="block text-sm font-medium text-gray-700 mb-2">Satuan (Varian)</label><select name="unit" value={formData.unit} onChange={handleInputChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" disabled={!selectedProductInfo}><option value="">Pilih Varian</option>{selectedProductInfo?.variants?.map(v => <option key={v.unitName} value={v.unitName}>{v.unitName}</option>)}</select></div></div></div>}
+                                    
+                                    {isServiceSale || isProductSale ? (<div><label className="block text-sm font-medium text-gray-700 mb-2">Keterangan (Otomatis)</label><p className="w-full px-4 py-2 bg-gray-200 border-gray-300 rounded-lg min-h-[42px] text-gray-600">{formData.description || '...'}</p></div>) : null}
+                                    {!isServiceSale && !isProductSale && formData.category && <div><label className="block text-sm font-medium text-gray-700 mb-2">Keterangan</label><input type="text" name="description" value={formData.description} onChange={handleInputChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"/></div>}
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t mt-4"><div><label className="block text-sm font-medium text-gray-700 mb-2">Jumlah (Rp)</label><input type="number" name="amount" value={formData.amount} onChange={handleInputChange} placeholder="0" className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 ${isServiceSale || isProductSale ? 'bg-gray-200' : ''}`} disabled={isServiceSale || isProductSale}/></div><div><label className="block text-sm font-medium text-gray-700 mb-2">Tanggal</label><input type="date" name="date" value={formData.date} onChange={handleInputChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"/></div></div><button onClick={handleSubmit} className="w-full md:w-auto px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700">Simpan Transaksi</button></div>}
+                                {activeTab === 'history' && <div className="overflow-x-auto">{!transactions || transactions.length === 0 ? <div className="text-center py-8 text-gray-500"><div className="w-12 h-12 mx-auto mb-3 text-gray-300"><FileText /></div><p>Belum ada transaksi</p></div> : <table className="w-full"><thead><tr className="border-b"><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Detail</th><th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Jumlah</th><th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Aksi</th></tr></thead><tbody className="divide-y divide-gray-200">{transactions.map(tx => <tr key={tx.id} className="hover:bg-gray-50"><td className="px-4 py-3 text-sm text-gray-900">{editingId === tx.id ? <div><input type="date" name="date" value={editData.date} onChange={handleEditChange} className="px-2 py-1 border rounded w-full mb-1 text-sm"/><input type="text" name="description" value={editData.description} disabled={tx.isProductTransaction} onChange={handleEditChange} className="px-2 py-1 border rounded w-full text-sm disabled:bg-gray-100"/></div> : <div><p className="font-semibold">{tx.description}</p><p className="text-xs text-gray-500">{new Date(tx.date + 'T00:00:00').toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}<span className="mx-1">&bull;</span><span className={`font-medium ${ tx.type === 'income' ? 'text-green-700' : 'text-red-700'}`}>{tx.category}</span></p></div>}</td><td className={`px-4 py-3 text-sm font-medium text-right whitespace-nowrap ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>{editingId === tx.id ? <input type="number" name="amount" value={editData.amount} onChange={handleEditChange} className="px-2 py-1 border rounded text-right w-full"/> : <>{tx.type === 'income' ? '+' : '-'} {formatRupiah(tx.amount)}</>}</td><td className="px-4 py-3 text-center">{editingId === tx.id ? <div className="flex items-center justify-center space-x-2"><button onClick={saveEdit} className="text-green-600 hover:text-green-800"><Check /></button><button onClick={cancelEdit} className="text-gray-600 hover:text-gray-800"><X /></button></div> : <div className="flex items-center justify-center space-x-2"><button onClick={() => startEdit(tx)} className="text-blue-600 hover:text-blue-800"><Edit2 /></button><button onClick={() => deleteTransaction(tx.id)} className="text-red-600 hover:text-red-800"><Trash2 /></button></div>}</td></tr>)}</tbody></table>}</div>}
+                                </div>
+                            </div>
+                        );
+                   case 'products': return <ProductManagement products={products} />;
+                    case 'analytics': return (<div className="space-y-6"><FinancialCharts transactions={transactions} /><div className="bg-white rounded-xl shadow-lg p-6"><h2 className="text-xl font-bold text-gray-800 mb-4">Distribusi Pengeluaran per Kategori</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center"><CategoryChart transactions={transactions} /><div className="bg-gray-50 p-4 rounded-lg"><h3 className="font-medium text-gray-700 mb-3">Rincian Pengeluaran</h3><ul className="space-y-2 text-sm text-gray-600">{transactions.filter(t => t.type === 'expense').reduce((acc, t) => { const e = acc.find(i => i.category === t.category); if(e) { e.amount += t.amount; } else { acc.push({ category: t.category, amount: t.amount }); } return acc; }, []).sort((a,b) => b.amount - a.amount).map((cat, idx) => (<li key={idx} className="flex justify-between items-center"><span>{cat.category}</span><span className="font-semibold text-gray-800">{formatRupiah(cat.amount)}</span></li>))}</ul></div></div></div></div>);
+                    case 'reports': return <ReportsPage transactions={transactions} />;
+                    default: return null;
+                }
+            };
+
+            return (
+                <div className="h-full bg-gray-50 font-sans flex">
+                    <CustomModal {...modalInfo} />
+                    <Sidebar activeView={activeView} setActiveView={setActiveView} isSidebarOpen={isSidebarOpen} />
+                    <div className="flex-1 flex flex-col h-full">
+                        <header className="flex-shrink-0 bg-white/80 backdrop-blur-sm border-b p-4 md:px-6 flex items-center justify-between z-30 no-print"><button className="md:hidden p-2 text-gray-600" onClick={() => setSidebarOpen(!isSidebarOpen)}><Menu /></button><h2 className="text-2xl font-bold text-gray-800 capitalize">{activeView}</h2><div className="text-sm text-gray-500 hidden md:block">{new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div></header>
+                        <main className="flex-1 p-4 md:p-6 overflow-y-auto">{renderContent()}</main>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<DashboardApp />, document.getElementById('root'));
+
+    </script>
+</body>
+</html>
+
