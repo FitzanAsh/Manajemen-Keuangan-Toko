@@ -9,10 +9,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         html, body, #root { height: 100%; }
-        body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }
+        body { font-family: 'Inter', sans-serif; }
         .loader {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #3b82f6;
+            border-top: 4px solid #3b82f6; /* Blue loader */
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -22,20 +22,6 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .animate-fade-in {
-            animation: fadeIn 0.5s ease-in-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        /* Markdown-like styling for AI response */
-        .prose { color: #374151; line-height: 1.6; }
-        .prose h3 { font-size: 1.1em; font-weight: 600; margin-top: 1.2em; margin-bottom: 0.4em; }
-        .prose p { margin-top: 0.8em; }
-        .prose ul { list-style-type: disc; margin-left: 1.5em; margin-top: 0.8em; }
-        .prose li { margin-top: 0.4em; }
-
         @media print {
             body * {
                 visibility: hidden;
@@ -55,9 +41,17 @@
                 display: none;
             }
         }
+        /* Style for color input */
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border: none;
+            border-radius: 50%;
+        }
     </style>
 </head>
-<body class="bg-blue-50/50">
+<body class="bg-blue-50">
     <div id="root">
         <div class="flex items-center justify-center min-h-screen">
             <div class="loader"></div>
@@ -67,17 +61,42 @@
     <!-- React and Babel for JSX -->
     <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <!-- React Component Code -->
     <script type="text/babel" data-type="module">
         
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, Timestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, Timestamp, setLogLevel } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+        import { getAuth, signOut } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
 
-        // --- Gemini API Key (Leave empty, will be handled by the environment) ---
-        const GEMINI_API_KEY = "";
+        // Konfigurasi Firebase Anda
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFWsaoDs9FdHv3vArCQzjwEim18g7qKTU",
+            authDomain: "manajemen-keuangan-toko-98b51.firebaseapp.com",
+            projectId: "manajemen-keuangan-toko-98b51",
+            storageBucket: "manajemen-keuangan-toko-98b51.firebasestorage.app",
+            messagingSenderId: "873328631553",
+            appId: "1:873328631553:web:347f9c74669db01cee0500",
+            measurementId: "G-0NY5L2KYJ3"
+        };
+
+        let app;
+        let auth;
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+        } catch(e) {
+            console.error("Error initializing Firebase:", e.message);
+            const root = document.getElementById('root');
+            root.innerHTML = `<div class="flex items-center justify-center min-h-screen"><div class="text-center p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                <h3 class="font-bold">Error Konfigurasi Firebase!</h3>
+                <p>Silakan periksa variabel \`firebaseConfig\` di dalam kode dan pastikan sudah diisi dengan benar.</p>
+            </div></div>`;
+        }
+        
+        const db = getFirestore(app);
+        setLogLevel('debug');
 
         // --- Ikon SVG ---
         const Plus = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
@@ -88,15 +107,16 @@
         const Edit2 = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>;
         const FileText = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>;
         const Trash2 = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="m8 6 4-4 4 4"/></svg>;
-        const Check = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>;
+        const Check = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>;
         const X = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
         const LayoutDashboard = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>;
         const ArrowLeftRight = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>;
         const Menu = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>;
         const LogOut = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>;
         const BarChart3 = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>;
-        const FileSignature = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 19.5v.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8.5L20 7.5V10"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9.42 16.62a2.14 2.14 0 1 1 3-3L14.5 11.5"/><path d="M16 14h-3v3"/></svg>;
-        const WandSparkles = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-4-7 7-2-2 7-7-4-4L2 2z"/><path d="m16 16 6 6"/><path d="M12.5 5.5 11 7"/><path d="m5.5 12.5 1.5-1.5"/><path d="M18 13h3"/><path d="M13 18v3"/></svg>;
+        const Lightbulb = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>;
+        const Target = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>;
+        const PieChart = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>;
         
         // --- Komponen Modal Kustom ---
         const CustomModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText, cancelText, isAlert }) => {
@@ -116,12 +136,21 @@
         };
         
         // --- Komponen Grafik Tren Keuangan ---
-        const FinancialCharts = ({ transactions, isDashboard = false, setActiveView }) => {
+        const FinancialCharts = ({ transactions, isDashboard = false, setActiveView, incomeColor, expenseColor, setIncomeColor, setExpenseColor }) => {
             const { useRef, useEffect, useState } = React;
             const chartRef = useRef(null);
             const [timeRange, setTimeRange] = useState('monthly');
-            const [chartType, setChartType] = useState('bar');
+            const [chartType, setChartType] = useState('bar'); 
             const chartTitle = isDashboard ? 'Analisis Keuangan' : 'Analisis Tren Keuangan';
+
+            // Helper function to convert hex to rgba
+            const hexToRgba = (hex, alpha = 1) => {
+                if (!/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) return `rgba(0,0,0,${alpha})`;
+                let c = hex.substring(1).split('');
+                if (c.length === 3) { c = [c[0], c[0], c[1], c[1], c[2], c[2]]; }
+                c = '0x' + c.join('');
+                return `rgba(${[(c>>16)&255, (c>>8)&255, c&255].join(',')},${alpha})`;
+            };
 
             useEffect(() => {
                 if(chartRef.current.chart) {
@@ -143,67 +172,48 @@
                 
                 const ctx = chartRef.current.getContext('2d');
                 
+                let datasets;
+                if (chartType === 'line') {
+                    const gradientIncome = ctx.createLinearGradient(0, 0, 0, 300);
+                    gradientIncome.addColorStop(0, hexToRgba(incomeColor, 0.4));
+                    gradientIncome.addColorStop(1, hexToRgba(incomeColor, 0));
+                    const gradientExpense = ctx.createLinearGradient(0, 0, 0, 300);
+                    gradientExpense.addColorStop(0, hexToRgba(expenseColor, 0.4));
+                    gradientExpense.addColorStop(1, hexToRgba(expenseColor, 0));
+                    datasets = [
+                        { label: 'Pemasukan', data: chartData.income, borderColor: incomeColor, backgroundColor: gradientIncome, tension: 0.4, fill: true, pointBackgroundColor: incomeColor, pointBorderColor: '#fff', pointHoverRadius: 7, },
+                        { label: 'Pengeluaran', data: chartData.expenses, borderColor: expenseColor, backgroundColor: gradientExpense, tension: 0.4, fill: true, pointBackgroundColor: expenseColor, pointBorderColor: '#fff', pointHoverRadius: 7, }
+                    ];
+                } else { // bar chart
+                    datasets = [
+                        { label: 'Pemasukan', data: chartData.income, backgroundColor: hexToRgba(incomeColor, 0.7), borderColor: incomeColor, borderWidth: 1, borderRadius: 4, },
+                        { label: 'Pengeluaran', data: chartData.expenses, backgroundColor: hexToRgba(expenseColor, 0.7), borderColor: expenseColor, borderWidth: 1, borderRadius: 4, }
+                    ];
+                }
+
                 const newChart = new Chart(ctx, {
                     type: chartType,
-                    data: {
-                        labels: chartData.labels,
-                        datasets: [
-                            {
-                                label: 'Pemasukan',
-                                data: chartData.income,
-                                backgroundColor: 'rgba(59, 130, 246, 0.7)',
-                                borderColor: 'rgba(59, 130, 246, 1)',
-                                borderWidth: 1,
-                                borderRadius: 4,
-                            },
-                            {
-                                label: 'Pengeluaran',
-                                data: chartData.expenses,
-                                backgroundColor: 'rgba(239, 68, 68, 0.7)',
-                                borderColor: 'rgba(239, 68, 68, 1)',
-                                borderWidth: 1,
-                                borderRadius: 4,
-                            }
-                        ]
-                    },
+                    data: { labels: chartData.labels, datasets: datasets },
                     options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
+                        responsive: true, maintainAspectRatio: false,
                         plugins: {
-                            legend: {
-                                position: 'top',
-                                align: 'end',
-                                labels: { usePointStyle: true, boxWidth: 8 }
-                            },
-                            tooltip: {
-                                mode: 'index',
-                                intersect: false,
-                                callbacks: {
-                                    label: function(context) {
-                                        let label = context.dataset.label || '';
-                                        if (label) { label += ': '; }
-                                        if (context.parsed.y !== null) {
-                                            label += new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(context.parsed.y);
-                                        }
-                                        return label;
-                                    }
+                            legend: { position: 'top', align: 'end', labels: { usePointStyle: true, boxWidth: 8 } },
+                            tooltip: { mode: 'index', intersect: false, callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.parsed.y !== null) { label += new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(context.parsed.y); }
+                                    return label;
                                 }
-                            }
+                            }}
                         },
-                        scales: {
-                            x: { grid: { display: false } },
-                            y: {
-                                beginAtZero: true,
-                                grid: { drawBorder: false },
-                                ticks: {
-                                    callback: function(value) {
-                                        if (value >= 1000000) return 'Rp' + (value / 1000000) + ' Jt';
-                                        if (value >= 1000) return 'Rp' + (value / 1000) + ' Rb';
-                                        return 'Rp' + value;
-                                    }
-                                }
+                        scales: { x: { grid: { display: false } }, y: { beginAtZero: true, grid: { drawBorder: false }, ticks: {
+                            callback: function(value) {
+                                if (value >= 1000000) return 'Rp' + (value / 1000000) + ' Jt';
+                                if (value >= 1000) return 'Rp' + (value / 1000) + ' Rb';
+                                return 'Rp' + value;
                             }
-                        }
+                        }}}
                     }
                 });
                 chartRef.current.chart = newChart;
@@ -211,14 +221,11 @@
                 return () => {
                    if(newChart) newChart.destroy();
                 };
-            }, [transactions, timeRange, isDashboard, chartType]);
+            }, [transactions, timeRange, chartType, isDashboard, incomeColor, expenseColor]);
             
             const prepareChartData = (transactions, range) => {
                 const now = new Date();
-                let startDate, endDate;
-                let labels = [];
-                let formatFn;
-
+                let startDate, endDate, labels = [], formatFn;
                 switch (range) {
                     case 'weekly':
                         startDate = new Date(now);
@@ -234,13 +241,9 @@
                         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
                         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
                         endDate.setHours(23, 59, 59, 999);
-                        
                         const tempLabels = [];
-                        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-                            tempLabels.push(new Date(d));
-                        }
+                        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) { tempLabels.push(new Date(d)); }
                         labels = tempLabels.map(d => d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }));
-
                         formatFn = (date) => date.getDate() - 1;
                         break;
                     case 'yearly':
@@ -251,60 +254,52 @@
                         formatFn = (date) => date.getMonth();
                         break;
                 }
-
-                const filtered = transactions.filter(t => {
-                    const tDate = t.timestamp.toDate();
-                    return tDate >= startDate && tDate <= endDate;
-                });
-
+                const filtered = transactions.filter(t => { const tDate = t.timestamp.toDate(); return tDate >= startDate && tDate <= endDate; });
                 const income = Array(labels.length).fill(0);
                 const expenses = Array(labels.length).fill(0);
-
                 filtered.forEach(t => {
                     const tDate = t.timestamp.toDate();
                     const index = formatFn(tDate);
                     if (index >= 0 && index < labels.length) {
-                        if (t.type === 'income') {
-                            income[index] += t.amount;
-                        } else {
-                            expenses[index] += t.amount;
-                        }
+                        if (t.type === 'income') { income[index] += t.amount; } 
+                        else { expenses[index] += t.amount; }
                     }
                 });
-                
                 return { labels, income, expenses };
             };
             
             return (
                 <div className="bg-white rounded-xl shadow-lg p-6 h-full flex flex-col">
                     <div className="mb-2">
-                        <div className="flex justify-between items-start">
+                        <div className="flex justify-between items-center flex-wrap gap-2">
                              <h2 className="text-xl font-bold text-gray-800">{chartTitle}</h2>
-                             {isDashboard ? ( 
-                                <button onClick={() => setActiveView('analytics')} className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center">
-                                    Lihat Detail <span className="ml-1 font-bold">&gt;</span>
-                                </button>
-                             ) : ( 
-                                <div className="flex items-center space-x-2">
-                                    <select 
-                                        value={chartType}
-                                        onChange={(e) => setChartType(e.target.value)}
-                                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                                    >
-                                        <option value="bar">Batang</option>
-                                        <option value="line">Garis</option>
-                                    </select>
-                                    <select 
-                                        value={timeRange} 
-                                        onChange={(e) => setTimeRange(e.target.value)}
-                                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                                    >
-                                        <option value="weekly">Mingguan</option>
-                                        <option value="monthly">Bulanan</option>
-                                        <option value="yearly">Tahunan</option>
-                                    </select>
-                                </div>
-                             )}
+                             <div className="flex items-center gap-2 flex-wrap">
+                                 {isDashboard ? ( 
+                                    <button onClick={() => setActiveView('analytics')} className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center">
+                                        Lihat Detail <span className="ml-1 font-bold">&gt;</span>
+                                    </button>
+                                 ) : ( 
+                                    <>
+                                        <div className="flex items-center gap-2">
+                                            <label htmlFor="incomeColor" className="text-sm text-gray-600">Pemasukan:</label>
+                                            <input id="incomeColor" type="color" value={incomeColor} onChange={(e) => setIncomeColor && setIncomeColor(e.target.value)} className="w-7 h-7 p-0.5 border-none rounded-full cursor-pointer bg-white" />
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <label htmlFor="expenseColor" className="text-sm text-gray-600">Pengeluaran:</label>
+                                            <input id="expenseColor" type="color" value={expenseColor} onChange={(e) => setExpenseColor && setExpenseColor(e.target.value)} className="w-7 h-7 p-0.5 border-none rounded-full cursor-pointer bg-white" />
+                                        </div>
+                                        <div className="flex items-center rounded-lg bg-gray-100 p-0.5">
+                                            <button onClick={() => setChartType('bar')} className={`px-3 py-1 text-sm rounded-md ${chartType === 'bar' ? 'bg-white text-blue-600 shadow' : 'text-gray-600'}`}>Batang</button>
+                                            <button onClick={() => setChartType('line')} className={`px-3 py-1 text-sm rounded-md ${chartType === 'line' ? 'bg-white text-blue-600 shadow' : 'text-gray-600'}`}>Alir</button>
+                                        </div>
+                                        <select value={timeRange} onChange={(e) => setTimeRange(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
+                                            <option value="weekly">Mingguan</option>
+                                            <option value="monthly">Bulanan</option>
+                                            <option value="yearly">Tahunan</option>
+                                        </select>
+                                    </>
+                                 )}
+                             </div>
                         </div>
                         {isDashboard && <p className="text-center text-sm text-gray-500 mt-1">Tren Keuangan sebulan terakhir</p>}
                     </div>
@@ -321,96 +316,51 @@
             const chartRef = useRef(null);
             
             useEffect(() => {
-                if(chartRef.current.chart) {
-                    chartRef.current.chart.destroy();
-                }
-
+                if(chartRef.current.chart) { chartRef.current.chart.destroy(); }
                 const expenseData = prepareCategoryData(transactions, 'expense');
-
                 if (expenseData.labels.length === 0) {
-                     const ctx = chartRef.current.getContext('2d');
+                    const ctx = chartRef.current.getContext('2d');
                     ctx.clearRect(0, 0, chartRef.current.width, chartRef.current.height);
-                    ctx.font = "16px Inter";
-                    ctx.fillStyle = "#9ca3af";
-                    ctx.textAlign = "center";
+                    ctx.font = "16px Inter"; ctx.fillStyle = "#9ca3af"; ctx.textAlign = "center";
                     ctx.fillText("Tidak ada data pengeluaran.", chartRef.current.width / 2, chartRef.current.height / 2);
                     return;
                 }
-                
                 const ctx = chartRef.current.getContext('2d');
-                
                 const newChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: expenseData.labels,
-                        datasets: [{
-                            data: expenseData.values,
-                            backgroundColor: [
-                                'rgba(239, 68, 68, 0.8)', 'rgba(249, 115, 22, 0.8)', 'rgba(245, 158, 11, 0.8)',
-                                'rgba(234, 179, 8, 0.8)', 'rgba(132, 204, 22, 0.8)', 'rgba(34, 197, 94, 0.8)',
-                                'rgba(59, 130, 246, 0.8)', 'rgba(139, 92, 246, 0.8)'
-                            ],
-                            borderColor: '#fff',
-                            borderWidth: 2
-                        }]
+                    type: 'doughnut', data: { labels: expenseData.labels, datasets: [{
+                        data: expenseData.values, backgroundColor: [
+                            'rgba(239, 68, 68, 0.8)', 'rgba(249, 115, 22, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(234, 179, 8, 0.8)', 
+                            'rgba(132, 204, 22, 0.8)', 'rgba(34, 197, 94, 0.8)', 'rgba(59, 130, 246, 0.8)', 'rgba(139, 92, 246, 0.8)'
+                        ], borderColor: '#fff', borderWidth: 2 }]
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    usePointStyle: true,
-                                    boxWidth: 8,
-                                    padding: 20
-                                }
-                            }
-                        }
-                    }
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, padding: 20 } } } }
                 });
                  chartRef.current.chart = newChart;
-                 return () => {
-                     if(newChart) newChart.destroy();
-                 }
+                 return () => { if(newChart) newChart.destroy(); }
             }, [transactions]);
             
             const prepareCategoryData = (transactions, type) => {
                 const categoryTotals = {};
-                
-                transactions
-                    .filter(t => t.type === type)
-                    .forEach(transaction => {
-                        if (!categoryTotals[transaction.category]) {
-                            categoryTotals[transaction.category] = 0;
-                        }
-                        categoryTotals[transaction.category] += transaction.amount;
-                    });
-                
-                return {
-                    labels: Object.keys(categoryTotals),
-                    values: Object.values(categoryTotals)
-                };
+                transactions.filter(t => t.type === type).forEach(transaction => {
+                    if (!categoryTotals[transaction.category]) { categoryTotals[transaction.category] = 0; }
+                    categoryTotals[transaction.category] += transaction.amount;
+                });
+                return { labels: Object.keys(categoryTotals), values: Object.values(categoryTotals) };
             };
             
-            return (
-                <div className="h-80">
-                     <canvas ref={chartRef}></canvas>
-                </div>
-            );
+            return ( <div className="h-80"><canvas ref={chartRef}></canvas></div> );
         };
 
         // --- Komponen Monitoring Stok ---
         const StockMonitor = ({ products }) => {
             const lowStockItems = products.filter(p => p.stockInBaseUnit < p.minStock);
-            
             return (
                 <div className="bg-white rounded-xl shadow-lg p-6">
                     <h2 className="text-xl font-bold text-gray-800 mb-4">Monitoring Stok Rendah</h2>
                     {lowStockItems.length === 0 ? (
                         <div className="text-center py-4">
-                            <div className="text-green-500 w-12 h-12 mx-auto mb-2"><Check /></div>
-                            <p className="text-gray-500">Stok semua barang aman</p>
+                            <div className="text-green-500 w-16 h-16 mx-auto mb-2 flex items-center justify-center bg-green-100 rounded-full"><Check /></div>
+                            <p className="text-gray-500 font-medium">Stok semua barang aman</p>
                         </div>
                     ) : (
                         <div className="space-y-3 max-h-64 overflow-y-auto">
@@ -420,9 +370,7 @@
                                         <p className="font-medium text-gray-800">{item.name}</p>
                                         <p className="text-sm text-red-600 font-semibold">Stok: {item.stockInBaseUnit} {item.baseUnit} (Min: {item.minStock})</p>
                                     </div>
-                                    <button className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700">
-                                        Restock
-                                    </button>
+                                    <button className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700">Restock</button>
                                 </div>
                             ))}
                         </div>
@@ -431,17 +379,91 @@
             );
         };
         
+        // --- Modal Edit Produk ---
+        const ProductEditModal = ({ isOpen, onClose, onSave, product }) => {
+            const { useState, useEffect } = React;
+            const [formData, setFormData] = useState(null);
+            const [stockToAdd, setStockToAdd] = useState('');
+
+            useEffect(() => {
+                if (product) {
+                    setFormData({ ...product });
+                    setStockToAdd(''); // Reset stock to add when product changes
+                }
+            }, [product]);
+
+            if (!isOpen || !formData) return null;
+
+            const handleInputChange = (e) => {
+                const { name, value } = e.target;
+                setFormData(prev => ({ ...prev, [name]: value }));
+            };
+            
+            const handleVariantChange = (index, e) => {
+                const { name, value } = e.target;
+                const updatedVariants = [...formData.variants];
+                updatedVariants[index] = { ...updatedVariants[index], [name]: value };
+                setFormData(prev => ({ ...prev, variants: updatedVariants }));
+            };
+
+            const handleSave = () => {
+                const stockIncrement = parseInt(stockToAdd) || 0;
+                const finalData = {
+                    ...formData,
+                    minStock: parseInt(formData.minStock),
+                    stockInBaseUnit: formData.stockInBaseUnit + stockIncrement,
+                    variants: formData.variants.map(v => ({...v, price: parseFloat(v.price), stockConversion: parseFloat(v.stockConversion) }))
+                };
+                onSave(finalData.id, finalData);
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <h3 className="text-xl font-bold text-gray-800 mb-4">Edit Produk: {product.name}</h3>
+                        <div className="space-y-4">
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Nama Produk</label><input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-md"/></div>
+                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Stok Minimum</label><input type="number" name="minStock" value={formData.minStock} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-md"/></div>
+                            </div>
+                            <div className="p-4 bg-blue-50 rounded-lg">
+                                 <label className="block text-sm font-medium text-gray-700 mb-1">Stok Saat Ini</label>
+                                <p className="text-2xl font-bold text-blue-800">{formData.stockInBaseUnit} <span className="text-lg font-normal">{formData.baseUnit}</span></p>
+                                <label className="block text-sm font-medium text-gray-700 mt-2">Tambah Stok (Restock)</label>
+                                <input type="number" value={stockToAdd} onChange={(e) => setStockToAdd(e.target.value)} placeholder={`Jumlah dalam ${formData.baseUnit}`} className="w-full px-3 py-2 border rounded-md"/>
+                            </div>
+                            <div>
+                                <h4 className="text-md font-semibold text-gray-700 mt-4 mb-2">Varian Produk</h4>
+                                <div className="space-y-2">
+                                    {formData.variants.map((variant, index) => (
+                                         <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-2 items-center p-2 border rounded-md">
+                                            <div><label className="block text-xs font-medium text-gray-600">Nama Varian</label><input type="text" name="unitName" value={variant.unitName} onChange={e => handleVariantChange(index, e)} className="w-full px-2 py-1 border rounded-md"/></div>
+                                            <div><label className="block text-xs font-medium text-gray-600">Harga (Rp)</label><input type="number" name="price" value={variant.price} onChange={e => handleVariantChange(index, e)} className="w-full px-2 py-1 border rounded-md"/></div>
+                                            <div><label className="block text-xs font-medium text-gray-600">Isi per Varian</label><input type="number" name="stockConversion" value={variant.stockConversion} onChange={e => handleVariantChange(index, e)} className="w-full px-2 py-1 border rounded-md"/></div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex justify-end space-x-2 mt-6">
+                            <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Batal</button>
+                            <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Simpan Perubahan</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
         // --- Komponen Manajemen Produk ---
-        const ProductManagement = ({ products, db }) => {
+        const ProductManagement = ({ products }) => {
             const { useState } = React;
             const [isAdding, setIsAdding] = useState(false);
             const [modalInfo, setModalInfo] = useState({ isOpen: false });
+            const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+            const [currentProduct, setCurrentProduct] = useState(null);
             
             const [newProduct, setNewProduct] = useState({
-                name: '',
-                baseUnit: '',
-                stockInBaseUnit: '',
-                minStock: '',
+                name: '', baseUnit: '', stockInBaseUnit: '', minStock: '',
                 variants: [{ id: 1, unitName: '', price: '', stockConversion: '' }]
             });
             
@@ -470,40 +492,41 @@
             };
 
             const handleSaveNewProduct = async () => {
-                if(!db) return;
                 if(!newProduct.name || !newProduct.baseUnit || !newProduct.stockInBaseUnit || !newProduct.minStock || newProduct.variants.some(v => !v.unitName || !v.price || !v.stockConversion)) {
                      setModalInfo({ isOpen: true, title: 'Input Tidak Lengkap', message: 'Mohon lengkapi semua field produk dan varian.', onConfirm: () => setModalInfo({ isOpen: false }), confirmText: 'OK', isAlert: true });
                     return;
                 }
-
                 const dataToSave = {
-                    name: newProduct.name,
-                    baseUnit: newProduct.baseUnit,
-                    stockInBaseUnit: parseInt(newProduct.stockInBaseUnit),
-                    minStock: parseInt(newProduct.minStock),
-                    variants: newProduct.variants.map(v => ({
-                        unitName: v.unitName,
-                        price: parseFloat(v.price),
-                        stockConversion: parseFloat(v.stockConversion)
-                    }))
+                    name: newProduct.name, baseUnit: newProduct.baseUnit,
+                    stockInBaseUnit: parseInt(newProduct.stockInBaseUnit), minStock: parseInt(newProduct.minStock),
+                    variants: newProduct.variants.map(v => ({ unitName: v.unitName, price: parseFloat(v.price), stockConversion: parseFloat(v.stockConversion) }))
                 };
-
                 await addDoc(collection(db, 'products'), dataToSave);
-                
                 setIsAdding(false);
                 setNewProduct({ name: '', baseUnit: '', stockInBaseUnit: '', minStock: '', variants: [{ id: 1, unitName: '', price: '', stockConversion: '' }]});
             };
 
+            const handleOpenEditModal = (product) => {
+                setCurrentProduct(product);
+                setIsEditModalOpen(true);
+            };
+
+            const handleCloseEditModal = () => {
+                setIsEditModalOpen(false);
+                setCurrentProduct(null);
+            };
+
+            const handleUpdateProduct = async (productId, updatedData) => {
+                const { id, ...dataToSave } = updatedData; // Hapus id dari data yang akan disimpan
+                const productRef = doc(db, 'products', productId);
+                await updateDoc(productRef, dataToSave);
+                handleCloseEditModal();
+            };
+
             const handleDeleteProduct = (id) => {
-                if(!db) return;
                 setModalInfo({
-                    isOpen: true,
-                    title: 'Konfirmasi Hapus',
-                    message: 'Apakah Anda yakin ingin menghapus produk ini? Ini tidak akan bisa dikembalikan.',
-                    onConfirm: async () => {
-                        await deleteDoc(doc(db, 'products', id));
-                        setModalInfo({ isOpen: false });
-                    },
+                    isOpen: true, title: 'Konfirmasi Hapus', message: 'Apakah Anda yakin ingin menghapus produk ini? Ini tidak akan bisa dikembalikan.',
+                    onConfirm: async () => { await deleteDoc(doc(db, 'products', id)); setModalInfo({ isOpen: false }); },
                     onCancel: () => setModalInfo({ isOpen: false })
                 });
             };
@@ -511,6 +534,7 @@
             return (
                 <div className="bg-white rounded-xl shadow-lg p-6">
                     <CustomModal {...modalInfo} />
+                    <ProductEditModal isOpen={isEditModalOpen} onClose={handleCloseEditModal} onSave={handleUpdateProduct} product={currentProduct} />
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-xl font-bold text-gray-800">Daftar Produk</h2>
                         <button onClick={() => setIsAdding(!isAdding)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">{isAdding ? 'Batal' : 'Tambah Produk Baru'}</button>
@@ -568,7 +592,7 @@
                                         <td className="px-4 py-3 text-right font-semibold text-lg">{p.stockInBaseUnit} <span className="text-sm font-normal text-gray-500">{p.baseUnit}</span></td>
                                         <td className="px-4 py-3 text-center">
                                             <div className="flex items-center justify-center space-x-2">
-                                                <button disabled className="text-blue-300 cursor-not-allowed"><Edit2 /></button>
+                                                <button onClick={() => handleOpenEditModal(p)} className="text-blue-600 hover:text-blue-800"><Edit2 /></button>
                                                 <button onClick={() => handleDeleteProduct(p.id)} className="text-red-600 hover:text-red-800"><Trash2 /></button>
                                             </div>
                                         </td>
@@ -582,31 +606,29 @@
         };
 
         // --- Komponen Sidebar ---
-        const Sidebar = ({ activeView, setActiveView, isSidebarOpen, auth }) => {
+        const Sidebar = ({ activeView, setActiveView, isSidebarOpen }) => {
             const navItems = [
                 { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard /> },
                 { id: 'transactions', label: 'Transaksi', icon: <ArrowLeftRight /> },
                 { id: 'products', label: 'Produk', icon: <Package /> },
                 { id: 'analytics', label: 'Analisis', icon: <BarChart3 /> },
-                { id: 'reports', label: 'Laporan', icon: <FileSignature /> },
+                { id: 'reports', label: 'Laporan', icon: <PieChart /> },
             ];
 
             const handleLogout = async () => {
-                if (!auth) return;
                 try {
                     await signOut(auth);
-                    // The onAuthStateChanged listener will handle the redirect
+                    window.location.href = '../index.html'; // Sesuaikan path jika perlu
                 } catch (error) {
                     console.error("Error saat logout:", error);
-                    alert('Terjadi kesalahan saat logout. Silakan coba lagi.');
                 }
             }
 
             return (
-                <aside className={`absolute top-0 left-0 h-full bg-gradient-to-b from-blue-700 to-blue-800 text-white shadow-lg transition-transform duration-300 ease-in-out z-40 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 w-64 flex flex-col no-print`}>
-                    <div className="flex items-center justify-center p-6 border-b border-blue-600/50">
+                <aside className={`absolute top-0 left-0 h-full bg-gradient-to-b from-blue-700 to-blue-900 shadow-lg transition-transform duration-300 ease-in-out z-40 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 w-64 flex flex-col no-print`}>
+                    <div className="flex items-center justify-center p-6 border-b border-blue-600">
                         <div className="flex items-center">
-                            <img src="../images/Tokoku.png" alt="Logo Tokoku" className="w-16 h-16 object-contain bg-white p-1 rounded-full" />
+                             <img src="../Images/Tokoku2.png" alt="Logo Tokoku" className="w-20 h-20" />
                         </div>
                     </div>
                     <nav className="p-4 flex-1">
@@ -615,7 +637,7 @@
                                 <li key={item.id} className="mb-2">
                                     <button
                                         onClick={() => setActiveView(item.id)}
-                                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-sm font-medium ${activeView === item.id ? 'bg-white/20 text-white shadow-md' : 'text-blue-200 hover:bg-white/10 hover:text-white'}`}
+                                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-sm font-medium ${activeView === item.id ? 'bg-blue-500/80 text-white shadow-md' : 'text-blue-100 hover:bg-blue-600/50'}`}
                                     >
                                         <div className="w-5 h-5">{item.icon}</div>
                                         <span>{item.label}</span>
@@ -624,10 +646,10 @@
                             ))}
                         </ul>
                     </nav>
-                     <div className="p-4 border-t border-blue-600/50">
+                     <div className="p-4 border-t border-blue-600">
                         <button
                             onClick={handleLogout}
-                            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-sm font-medium text-blue-200 hover:bg-white/10 hover:text-white"
+                            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-sm font-medium text-red-500 hover:bg-red-500 hover:text-white"
                         >
                             <div className="w-5 h-5"><LogOut /></div>
                             <span>Logout</span>
@@ -637,6 +659,61 @@
             );
         };
 
+        // --- Komponen Analisis & Prediksi untuk Laporan ---
+        const FinancialAnalysis = ({ report }) => {
+             const { useMemo } = React;
+            
+             const analysis = useMemo(() => {
+                if (!report) return null;
+                const { totalIncome, totalExpense, profit } = report.summary;
+                const insights = []; const recommendations = [];
+                if (profit > 0) {
+                    insights.push(`Selamat! Anda menghasilkan laba sebesar ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(profit)}.`);
+                } else {
+                    insights.push(`Perhatian, Anda mengalami kerugian sebesar ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Math.abs(profit))}.`);
+                    recommendations.push("Identifikasi pengeluaran terbesar dan cari cara untuk menekannya. Tingkatkan promosi untuk menaikkan penjualan.");
+                }
+                if (totalIncome > 0) {
+                    const profitMargin = (profit / totalIncome) * 100;
+                    insights.push(`Margin keuntungan Anda adalah ${profitMargin.toFixed(2)}%.`);
+                    if (profitMargin < 10 && profit > 0) {
+                        recommendations.push("Margin keuntungan terlihat rendah. Pertimbangkan untuk meninjau harga jual produk atau negosiasi harga beli dengan supplier.");
+                    } else if (profitMargin >= 10){
+                         recommendations.push("Margin keuntungan Anda sehat! Pertahankan performa ini dan terus cari peluang efisiensi.");
+                    }
+                }
+                if (report.expenseTransactions.length > 0) {
+                    const expenseByCategory = report.expenseTransactions.reduce((acc, tx) => { acc[tx.category] = (acc[tx.category] || 0) + tx.amount; return acc; }, {});
+                    const largestExpense = Object.entries(expenseByCategory).sort(([,a],[,b]) => b-a)[0];
+                    if (largestExpense) {
+                        insights.push(`Pengeluaran terbesar ada pada kategori "${largestExpense[0]}" sebesar ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(largestExpense[1])}.`);
+                         if ((largestExpense[1] / totalExpense) > 0.5) {
+                             recommendations.push(`Fokuskan efisiensi pada kategori "${largestExpense[0]}", karena menyumbang lebih dari separuh total pengeluaran Anda.`);
+                         }
+                    }
+                } else { insights.push("Tidak ada data pengeluaran pada periode ini."); }
+                 return { insights, recommendations };
+             }, [report]);
+
+            if (!analysis) return null;
+
+             return (
+                 <div className="mt-8 border-t pt-6">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-4">Analisis & Prediksi Solusi</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
+                             <h3 className="flex items-center font-bold text-yellow-800 mb-2"><Lightbulb className="mr-2" /> Wawasan (Insights)</h3>
+                             <ul className="list-disc list-inside space-y-2 text-yellow-900">{analysis.insights.map((insight, i) => <li key={i}>{insight}</li>)}</ul>
+                        </div>
+                         <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-r-lg">
+                             <h3 className="flex items-center font-bold text-green-800 mb-2"><Target className="mr-2" /> Rekomendasi Aksi</h3>
+                             <ul className="list-disc list-inside space-y-2 text-green-900">{analysis.recommendations.length > 0 ? analysis.recommendations.map((rec, i) => <li key={i}>{rec}</li>) : <li>Kinerja keuangan Anda sudah baik. Terus pertahankan!</li>}</ul>
+                        </div>
+                    </div>
+                 </div>
+             )
+        }
+
         // --- Komponen Laporan ---
         const ReportsPage = ({ transactions }) => {
             const { useState } = React;
@@ -645,160 +722,68 @@
             const [month, setMonth] = useState(new Date().getMonth());
             const [generatedReport, setGeneratedReport] = useState(null);
             const [showDetails, setShowDetails] = useState(false);
-            const [prediction, setPrediction] = useState("");
-            const [isPredicting, setIsPredicting] = useState(false);
 
             const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
             
             const formatRupiah = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num || 0);
 
             const handleGenerateReport = () => {
-                setPrediction(""); // Reset prediction on new report
                 const yearNum = parseInt(year);
                 let filteredTransactions = [];
-
                 if(reportType === 'monthly') {
                     const monthNum = parseInt(month);
-                    filteredTransactions = transactions.filter(t => {
-                        const txDate = t.timestamp.toDate();
-                        return txDate.getFullYear() === yearNum && txDate.getMonth() === monthNum;
-                    });
-                } else { // yearly
+                    filteredTransactions = transactions.filter(t => { const txDate = t.timestamp.toDate(); return txDate.getFullYear() === yearNum && txDate.getMonth() === monthNum; });
+                } else {
                     filteredTransactions = transactions.filter(t => t.timestamp.toDate().getFullYear() === yearNum);
                 }
-
                 const incomeTransactions = filteredTransactions.filter(t => t.type === 'income');
                 const expenseTransactions = filteredTransactions.filter(t => t.type === 'expense');
-
                 const totalIncome = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
                 const totalExpense = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
                 const profit = totalIncome - totalExpense;
-
                 setGeneratedReport({
                     title: reportType === 'monthly' ? `Laporan Keuangan - ${months[month]} ${year}` : `Laporan Keuangan - Tahun ${year}`,
-                    incomeTransactions,
-                    expenseTransactions,
-                    summary: { totalIncome, totalExpense, profit }
+                    incomeTransactions, expenseTransactions, summary: { totalIncome, totalExpense, profit }
                 });
-                setShowDetails(false); // Reset detail view on new report
+                setShowDetails(false);
             };
 
-            const getPrediction = async () => {
-                if (!generatedReport) return;
-                setIsPredicting(true);
-                setPrediction("");
-
-                const { totalIncome, totalExpense, profit } = generatedReport.summary;
-                const topExpenses = generatedReport.expenseTransactions
-                    .reduce((acc, t) => {
-                        if (!acc[t.category]) acc[t.category] = 0;
-                        acc[t.category] += t.amount;
-                        return acc;
-                    }, {});
-
-                const topExpensesString = Object.entries(topExpenses)
-                    .sort(([,a],[,b]) => b-a)
-                    .slice(0, 3)
-                    .map(([cat, amount]) => `- ${cat}: ${formatRupiah(amount)}`)
-                    .join('\n');
-
-                const prompt = `
-                    Anda adalah seorang analis bisnis ahli untuk toko kelontong kecil di Indonesia. 
-                    Analisis data keuangan berikut untuk periode "${generatedReport.title}":
-
-                    - Total Pemasukan: ${formatRupiah(totalIncome)}
-                    - Total Pengeluaran: ${formatRupiah(totalExpense)}
-                    - Laba / Rugi: ${formatRupiah(profit)}
-                    - Tiga Kategori Pengeluaran Teratas:
-                    ${topExpensesString || "- Tidak ada data pengeluaran"}
-
-                    Berdasarkan data ini, berikan:
-                    1.  **Analisis Singkat:** Kesimpulan utama dari performa keuangan periode ini (misalnya, apakah sehat, apa yang menonjol).
-                    2.  **Prediksi Sederhana:** Kemungkinan tren untuk periode berikutnya jika tidak ada perubahan.
-                    3.  **Rekomendasi Tindakan:** 2-3 langkah konkret dan praktis yang bisa dilakukan pemilik toko untuk meningkatkan laba atau efisiensi.
-                    
-                    Gunakan format yang jelas dengan heading dan poin-poin. Jawab dalam Bahasa Indonesia.
-                `;
-
-                try {
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: prompt }] }]
-                        })
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(`API error: ${response.statusText}`);
-                    }
-
-                    const result = await response.json();
-                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                    setPrediction(text || "Tidak dapat menghasilkan prediksi saat ini.");
-                } catch (error) {
-                    console.error("Error fetching prediction:", error);
-                    setPrediction("Maaf, terjadi kesalahan saat mengambil analisis. Silakan coba lagi.");
-                } finally {
-                    setIsPredicting(false);
-                }
-            };
-            
             const exportToCsv = () => {
                 if (!generatedReport) return;
                 const headers = ["Tanggal", "Kategori", "Keterangan", "Tipe", "Jumlah"];
                 const data = [...generatedReport.incomeTransactions, ...generatedReport.expenseTransactions].map(t => ({
-                    tanggal: t.date,
-                    kategori: t.category,
-                    keterangan: t.description,
-                    tipe: t.type === 'income' ? 'Pemasukan' : 'Pengeluaran',
-                    jumlah: t.amount
+                    tanggal: t.date, kategori: t.category, keterangan: t.description, tipe: t.type === 'income' ? 'Pemasukan' : 'Pengeluaran', jumlah: t.amount
                 }));
-
                 const csvRows = [headers.join(',')];
                 for (const row of data) {
-                    const values = headers.map(header => {
-                        const escaped = ('' + row[header.toLowerCase()]).replace(/"/g, '\\"');
-                        return `"${escaped}"`;
-                    });
+                    const values = headers.map(header => { const escaped = ('' + row[header.toLowerCase()]).replace(/"/g, '\\"'); return `"${escaped}"`; });
                     csvRows.push(values.join(','));
                 }
-                
                 const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.setAttribute('hidden', '');
-                a.setAttribute('href', url);
-                a.setAttribute('download', `${generatedReport.title}.csv`);
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+                a.setAttribute('hidden', ''); a.setAttribute('href', url); a.setAttribute('download', `${generatedReport.title}.csv`);
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
             };
 
-            const printReport = () => {
-                window.print();
-            };
+            const printReport = () => { window.print(); };
 
             const renderTable = (data, title) => (
                 <div>
                     <h3 className="text-xl font-semibold mb-2 mt-4 text-gray-700">{title}</h3>
                     <table className="w-full text-sm text-left text-gray-500">
-                        <thead className="text-xs text-gray-700 uppercase bg-gray-100">
-                            <tr>
-                                <th scope="col" className="px-6 py-3">Tanggal</th>
-                                <th scope="col" className="px-6 py-3">Keterangan</th>
-                                <th scope="col" className="px-6 py-3 text-right">Jumlah</th>
+                        <thead className="text-xs text-gray-700 uppercase bg-gray-100"><tr>
+                            <th scope="col" className="px-6 py-3">Tanggal</th>
+                            <th scope="col" className="px-6 py-3">Keterangan</th>
+                            <th scope="col" className="px-6 py-3 text-right">Jumlah</th>
+                        </tr></thead>
+                        <tbody>{data.map(tx => (
+                            <tr key={tx.id} className="bg-white border-b">
+                                <td className="px-6 py-4">{tx.date}</td>
+                                <td className="px-6 py-4">{tx.description}</td>
+                                <td className="px-6 py-4 text-right">{formatRupiah(tx.amount)}</td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            {data.map(tx => (
-                                <tr key={tx.id} className="bg-white border-b">
-                                    <td className="px-6 py-4">{tx.date}</td>
-                                    <td className="px-6 py-4">{tx.description}</td>
-                                    <td className="px-6 py-4 text-right">{formatRupiah(tx.amount)}</td>
-                                </tr>
-                            ))}
-                        </tbody>
+                        ))}</tbody>
                     </table>
                 </div>
             );
@@ -807,7 +792,7 @@
                 <div className="space-y-6">
                     <div className="bg-white rounded-xl shadow-lg p-6 no-print">
                         <h2 className="text-xl font-bold text-gray-800 mb-4">Buat Laporan Keuangan</h2>
-                        <div className="flex items-center space-x-4">
+                        <div className="flex flex-wrap items-center gap-4">
                             <select value={reportType} onChange={e => setReportType(e.target.value)} className="px-4 py-2 border rounded-lg">
                                 <option value="monthly">Bulanan</option>
                                 <option value="yearly">Tahunan</option>
@@ -821,9 +806,8 @@
                             <button onClick={handleGenerateReport} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Buat Laporan</button>
                         </div>
                     </div>
-                    
                     {generatedReport && (
-                        <div className="bg-white rounded-xl shadow-lg p-6 animate-fade-in">
+                        <div className="bg-white rounded-xl shadow-lg p-6">
                              <div className="mb-6">
                                 <h2 className="text-2xl font-bold text-gray-800">{generatedReport.title}</h2>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 text-center">
@@ -831,36 +815,23 @@
                                     <div className="p-4 bg-red-50 rounded-lg"><h3 className="font-semibold text-red-700">Total Pengeluaran</h3><p className="text-2xl font-bold">{formatRupiah(generatedReport.summary.totalExpense)}</p></div>
                                     <div className={`p-4 rounded-lg ${generatedReport.summary.profit >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}><h3 className={`font-semibold ${generatedReport.summary.profit >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>Laba / Rugi</h3><p className="text-2xl font-bold">{formatRupiah(generatedReport.summary.profit)}</p></div>
                                 </div>
-                                <div className="flex flex-col sm:flex-row justify-center items-center mt-6 no-print gap-4">
-                                     <button onClick={() => setShowDetails(!showDetails)} className="text-blue-600 font-semibold">{showDetails ? 'Sembunyikan Rincian' : 'Tampilkan Rincian Transaksi'}</button>
-                                     <button onClick={getPrediction} disabled={isPredicting} className="flex items-center space-x-2 px-4 py-2 bg-fuchsia-600 text-white rounded-lg hover:bg-fuchsia-700 disabled:bg-gray-400">
-                                        <WandSparkles />
-                                        <span>{isPredicting ? 'Menganalisis...' : 'Dapatkan Analisis & Prediksi'}</span>
-                                    </button>
+                                <FinancialAnalysis report={generatedReport} />
+                                <div className="text-center mt-8 no-print border-t pt-6">
+                                    <button onClick={() => setShowDetails(!showDetails)} className="text-blue-600 font-semibold hover:underline">{showDetails ? 'Sembunyikan Rincian' : 'Tampilkan Rincian Transaksi'}</button>
                                 </div>
                              </div>
-                             
-                             {isPredicting && <div className="flex justify-center my-4"><div className="loader"></div></div>}
-                             
-                             {prediction && (
-                                <div className="mt-6 border-t pt-6 prose max-w-none">
-                                    <div dangerouslySetInnerHTML={{ __html: prediction.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<h3>$1</h3>') }} />
-                                </div>
-                             )}
-
                              {showDetails && (
-                                 <div id="report-content">
-                                     <div className="p-6 flex justify-between items-center no-print border-t mt-6">
-                                         <h2 className="text-xl font-bold text-gray-800">Rincian Laporan</h2>
-                                         <div className="space-x-2">
-                                             <button onClick={exportToCsv} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Export CSV</button>
-                                             <button onClick={printReport} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Cetak / Simpan PDF</button>
-                                         </div>
-                                     </div>
-                                     
-                                     {renderTable(generatedReport.incomeTransactions, 'Rincian Pemasukan')}
-                                     {renderTable(generatedReport.expenseTransactions, 'Rincian Pengeluaran')}
-                                 </div>
+                                <div id="report-content">
+                                    <div className="p-6 flex justify-between items-center no-print border-t mt-6">
+                                        <h2 className="text-xl font-bold text-gray-800">Rincian Laporan</h2>
+                                        <div className="space-x-2">
+                                            <button onClick={exportToCsv} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Export CSV</button>
+                                            <button onClick={printReport} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Cetak / Simpan PDF</button>
+                                        </div>
+                                    </div>
+                                    {renderTable(generatedReport.incomeTransactions, 'Rincian Pemasukan')}
+                                    {renderTable(generatedReport.expenseTransactions, 'Rincian Pengeluaran')}
+                                </div>
                              )}
                         </div>
                     )}
@@ -871,92 +842,28 @@
         // --- Komponen Utama Aplikasi ---
         const DashboardApp = () => {
             const { useState, useEffect, useMemo } = React;
-
-            const [firebaseServices, setFirebaseServices] = useState({ auth: null, db: null });
-            const [isAuthReady, setIsAuthReady] = useState(false);
-
             const [transactions, setTransactions] = useState([]);
             const [products, setProducts] = useState([]);
-            
-            const [formData, setFormData] = useState({
-                type: 'income',
-                category: '',
-                description: '',
-                amount: '',
-                date: new Date().toISOString().split('T')[0],
-                productName: '',
-                quantity: '',
-                unit: '',
-            });
+            const [formData, setFormData] = useState({ type: 'income', category: '', description: '', amount: '', date: new Date().toISOString().split('T')[0], productName: '', quantity: '', unit: '', });
             const [serviceValue, setServiceValue] = useState('');
-
             const [editingId, setEditingId] = useState(null);
             const [editData, setEditData] = useState({});
             const [activeTab, setActiveTab] = useState('input');
             const [modalInfo, setModalInfo] = useState({ isOpen: false });
             const [activeView, setActiveView] = useState('dashboard');
             const [isSidebarOpen, setSidebarOpen] = useState(false);
+            const [incomeColor, setIncomeColor] = useState('#22c55e');
+            const [expenseColor, setExpenseColor] = useState('#ef4444');
 
-            useEffect(() => {
-                const initializeFirebase = async () => {
-                    try {
-                        const firebaseConfig = {
-                            apiKey: "AIzaSyDFWsaoDs9FdHv3vArCQzjwEim18g7qKTU",
-                            authDomain: "manajemen-keuangan-toko-98b51.firebaseapp.com",
-                            projectId: "manajemen-keuangan-toko-98b51",
-                            storageBucket: "manajemen-keuangan-toko-98b51.firebasestorage.app",
-                            messagingSenderId: "873328631553",
-                            appId: "1:873328631553:web:347f9c74669db01cee0500",
-                            measurementId: "G-0NY5L2KYJ3"
-                        };
-                        const app = initializeApp(firebaseConfig);
-                        const auth = getAuth(app);
-                        const db = getFirestore(app);
-                        setLogLevel('debug');
-
-                        onAuthStateChanged(auth, async (user) => {
-                            if (!user) {
-                                try {
-                                    await signInAnonymously(auth);
-                                } catch (authError) {
-                                    console.error("Firebase sign-in error:", authError);
-                                }
-                            }
-                            setFirebaseServices({ auth, db });
-                            setIsAuthReady(true);
-                        });
-                    } catch (e) {
-                        console.error("Error initializing Firebase:", e);
-                         const root = document.getElementById('root');
-                         root.innerHTML = `<div class="flex items-center justify-center min-h-screen"><div class="text-center p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-                            <h3 class="font-bold">Error Konfigurasi Firebase!</h3>
-                            <p>Tidak dapat memuat konfigurasi Firebase. Pastikan aplikasi berjalan di lingkungan yang benar.</p>
-                        </div></div>`;
-                    }
-                };
-
-                initializeFirebase();
-            }, []);
-
-            // Data & Konfigurasi
             const categories = {
                 income: [ { name: 'Penjualan Barang', hasProducts: true }, { name: 'Penjualan Pulsa', hasProducts: false }, { name: 'Penjualan Token Listrik', hasProducts: false }, { name: 'Lainnya', hasProducts: false } ],
                 expense: [ { name: 'Kulakan Barang', hasProducts: true }, { name: 'Listrik & Air', hasProducts: false }, { name: 'Sewa Toko', hasProducts: false }, { name: 'Gaji Karyawan', hasProducts: false }, { name: 'Transportasi', hasProducts: false }, { name: 'Lainnya', hasProducts: false } ]
             };
-            const pulsaOptions = [
-                { value: 5000, display: '5.000' }, { value: 10000, display: '10.000' },
-                { value: 20000, display: '20.000' }, { value: 25000, display: '25.000' },
-                { value: 50000, display: '50.000' }, { value: 100000, display: '100.000' },
-            ];
+            const pulsaOptions = [ { value: 5000, display: '5.000' }, { value: 10000, display: '10.000' }, { value: 20000, display: '20.000' }, { value: 25000, display: '25.000' }, { value: 50000, display: '50.000' }, { value: 100000, display: '100.000' }, ];
             const PULSA_ADMIN_FEE = 2000;
             const TOKEN_ADMIN_FEE = 2500;
             
-            // Listener Firestore
             useEffect(() => {
-                if (!isAuthReady || !firebaseServices.db) return;
-                
-                const { db } = firebaseServices;
-
                 const unsubTransactions = onSnapshot(query(collection(db, 'transactions')), (snapshot) => {
                     let fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), date: doc.data().timestamp?.toDate().toISOString().split('T')[0] || '' }));
                     fetched.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
@@ -968,17 +875,13 @@
                     setProducts(fetched);
                 });
                 return () => { unsubTransactions(); unsubProducts(); };
-            }, [isAuthReady, firebaseServices.db]);
+            }, []);
             
-            // Memoized values
             const selectedCategoryInfo = useMemo(() => categories[formData.type].find(c => c.name === formData.category), [formData.type, formData.category]);
             const selectedProductInfo = useMemo(() => products.find(p => p.name === formData.productName), [formData.productName, products]);
             
-            // Efek untuk otomatisasi form
             useEffect(() => {
-                const { category } = formData;
-                const nominal = parseInt(serviceValue) || 0;
-                
+                const { category } = formData; const nominal = parseInt(serviceValue) || 0;
                 if (category === 'Penjualan Pulsa' && nominal > 0) {
                     const finalAmount = nominal + PULSA_ADMIN_FEE;
                     const description = `Penjualan Pulsa ${nominal.toLocaleString('id-ID')}`;
@@ -995,70 +898,45 @@
                         setFormData(prev => ({ ...prev, amount: totalAmount, description: autoDescription }));
                     }
                 }
-            }, [serviceValue, formData.quantity, formData.unit, formData.category, formData.productName, products, selectedCategoryInfo, selectedProductInfo]);
-
+            }, [serviceValue, formData.quantity, formData.unit, formData.category, formData.productName]);
 
             const handleInputChange = (e) => {
                 const { name, value } = e.target;
                 setFormData(prev => {
                     const newState = { ...prev, [name]: value };
-                    if (name === 'type' || name === 'category') {
-                        setServiceValue('');
-                        return { ...newState, productName: '', quantity: '', unit: '', description: '', amount: '' };
-                    }
-                    if (name === 'productName') {
-                        return { ...newState, unit: '', amount: '' };
-                    }
+                    if (name === 'type' || name === 'category') { setServiceValue(''); return { ...newState, productName: '', quantity: '', unit: '', description: '', amount: '' }; }
+                    if (name === 'productName') { return { ...newState, unit: '', amount: '' }; }
                     return newState;
                 });
             };
             
             const handleSubmit = async () => {
-                const { db } = firebaseServices;
                 if (!db) return;
                 const isServiceSale = formData.category === 'Penjualan Pulsa' || formData.category === 'Penjualan Token Listrik';
-
-                if (!formData.category || !formData.amount || !formData.date || 
-                    (!isServiceSale && selectedCategoryInfo?.hasProducts && (!formData.productName || !formData.quantity || !formData.unit)) || 
-                    (!isServiceSale && !selectedCategoryInfo?.hasProducts && !formData.description) ||
-                    (isServiceSale && !serviceValue)
-                ) {
+                if (!formData.category || !formData.amount || !formData.date || (!isServiceSale && selectedCategoryInfo?.hasProducts && (!formData.productName || !formData.quantity || !formData.unit)) || (!isServiceSale && !selectedCategoryInfo?.hasProducts && !formData.description) || (isServiceSale && !serviceValue)) {
                     setModalInfo({ isOpen: true, title: 'Input Tidak Lengkap', message: 'Mohon lengkapi semua field yang wajib diisi!', onConfirm: () => setModalInfo({ isOpen: false }), confirmText: 'OK', isAlert: true });
                     return;
                 }
-                
-                let newTransaction = {
-                    type: formData.type, category: formData.category, description: formData.description,
-                    amount: parseFloat(formData.amount), timestamp: Timestamp.fromDate(new Date(formData.date + 'T00:00:00')),
-                    isProductTransaction: selectedCategoryInfo?.hasProducts || false,
-                };
-                
+                let newTransaction = { type: formData.type, category: formData.category, description: formData.description, amount: parseFloat(formData.amount), timestamp: Timestamp.fromDate(new Date(formData.date + 'T00:00:00')), isProductTransaction: selectedCategoryInfo?.hasProducts || false, };
                 if (newTransaction.isProductTransaction) {
                     const variant = selectedProductInfo.variants.find(v => v.unitName === formData.unit);
                     newTransaction.productDetails = { productId: selectedProductInfo.id, name: formData.productName, quantity: parseFloat(formData.quantity), unit: formData.unit, stockConversion: variant.stockConversion };
                 }
-
                 try {
                     await addDoc(collection(db, 'transactions'), newTransaction);
-                    if (newTransaction.isProductTransaction) {
+                    if (newTransaction.isProductTransaction && formData.type === 'income') {
                         const productRef = doc(db, 'products', selectedProductInfo.id);
-                        const stockChange = newTransaction.productDetails.stockConversion * newTransaction.productDetails.quantity;
-                        const newStock = formData.type === 'income' 
-                            ? selectedProductInfo.stockInBaseUnit - stockChange 
-                            : selectedProductInfo.stockInBaseUnit + stockChange;
+                        const stockToDeduct = newTransaction.productDetails.stockConversion * newTransaction.productDetails.quantity;
+                        const newStock = selectedProductInfo.stockInBaseUnit - stockToDeduct;
                         await updateDoc(productRef, { stockInBaseUnit: newStock });
                     }
                     setFormData({ type: 'income', category: '', description: '', amount: '', date: new Date().toISOString().split('T')[0], productName: '', quantity: '', unit: '' });
                     setServiceValue('');
                     setActiveTab('history');
-                } catch (error) {
-                    console.error("Error submitting transaction: ", error);
-                }
+                } catch (error) { console.error("Error submitting transaction: ", error); }
             };
 
             const deleteTransaction = (id) => {
-                const { db } = firebaseServices;
-                if (!db) return;
                 setModalInfo({
                     isOpen: true, title: 'Konfirmasi Hapus', message: 'Apakah Anda yakin ingin menghapus transaksi ini?',
                     onConfirm: async () => { await deleteDoc(doc(db, 'transactions', id)); setModalInfo({ isOpen: false }); },
@@ -1070,16 +948,9 @@
             const cancelEdit = () => { setEditingId(null); setEditData({}); };
 
             const saveEdit = async () => {
-                const { db } = firebaseServices;
-                if (!db) return;
                 const { id, ...dataToSave } = editData;
                 await updateDoc(doc(db, 'transactions', editingId), { ...dataToSave, amount: parseFloat(dataToSave.amount), timestamp: Timestamp.fromDate(new Date(dataToSave.date + 'T00:00:00')) });
                 cancelEdit();
-            };
-            
-            const handleEditChange = (e) => {
-                const { name, value } = e.target;
-                setEditData(prev => ({ ...prev, [name]: value }));
             };
 
             const { income, expense, balance } = useMemo(() => {
@@ -1090,22 +961,15 @@
             
             const formatRupiah = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num || 0);
 
-            if (!isAuthReady) {
-                 return (
-                    <div className="flex items-center justify-center min-h-screen">
-                        <div className="loader"></div>
-                    </div>
-                );
-            }
-
             const renderContent = () => {
-                const { db } = firebaseServices;
                 switch(activeView) {
                     case 'dashboard':
                         return (<div className="space-y-6">
                                 <div className="bg-white rounded-xl shadow-lg p-6"><h2 className="text-xl font-bold text-gray-800 mb-4">Ringkasan Keuangan</h2><div className="grid grid-cols-1 md:grid-cols-3 gap-4"><div className="bg-green-50 border border-green-200 rounded-lg p-4"><div className="flex items-center justify-between"><div><p className="text-green-600 text-sm font-medium">Total Pemasukan</p><p className="text-2xl font-bold text-green-700">{formatRupiah(income)}</p></div><div className="text-green-500"><TrendingUp /></div></div></div><div className="bg-red-50 border border-red-200 rounded-lg p-4"><div className="flex items-center justify-between"><div><p className="text-red-600 text-sm font-medium">Total Pengeluaran</p><p className="text-2xl font-bold text-red-700">{formatRupiah(expense)}</p></div><div className="text-red-500"><TrendingDown /></div></div></div><div className={`${balance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'} border rounded-lg p-4`}><div className="flex items-center justify-between"><div><p className={`${balance >= 0 ? 'text-blue-600' : 'text-orange-600'} text-sm font-medium`}>Saldo</p><p className={`text-2xl font-bold ${balance >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>{formatRupiah(balance)}</p></div><div className={`${balance >= 0 ? 'text-blue-500' : 'text-orange-500'}`}><DollarSign /></div></div></div></div></div>
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    <div className="lg:col-span-2"><FinancialCharts transactions={transactions} isDashboard={true} setActiveView={setActiveView} /></div>
+                                    <div className="lg:col-span-2">
+                                        <FinancialCharts transactions={transactions} isDashboard={true} setActiveView={setActiveView} incomeColor={incomeColor} expenseColor={expenseColor} />
+                                    </div>
                                     <div className="lg:col-span-1 space-y-6">
                                         <div className="bg-white rounded-xl shadow-lg p-6">
                                             <div className="flex justify-between items-center mb-4">
@@ -1148,8 +1012,10 @@
                                 </div>
                             </div>
                         );
-                   case 'products': return <ProductManagement products={products} db={db} />;
-                    case 'analytics': return (<div className="space-y-6"><FinancialCharts transactions={transactions} /><div className="bg-white rounded-xl shadow-lg p-6"><h2 className="text-xl font-bold text-gray-800 mb-4">Distribusi Pengeluaran per Kategori</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center"><CategoryChart transactions={transactions} /><div className="bg-gray-50 p-4 rounded-lg"><h3 className="font-medium text-gray-700 mb-3">Rincian Pengeluaran</h3><ul className="space-y-2 text-sm text-gray-600">{transactions.filter(t => t.type === 'expense').reduce((acc, t) => { const e = acc.find(i => i.category === t.category); if(e) { e.amount += t.amount; } else { acc.push({ category: t.category, amount: t.amount }); } return acc; }, []).sort((a,b) => b.amount - a.amount).map((cat, idx) => (<li key={idx} className="flex justify-between items-center"><span>{cat.category}</span><span className="font-semibold text-gray-800">{formatRupiah(cat.amount)}</span></li>))}</ul></div></div></div></div>);
+                    case 'products': return <ProductManagement products={products} />;
+                     case 'analytics': return (<div className="space-y-6">
+                        <FinancialCharts transactions={transactions} incomeColor={incomeColor} expenseColor={expenseColor} setIncomeColor={setIncomeColor} setExpenseColor={setExpenseColor} />
+                        <div className="bg-white rounded-xl shadow-lg p-6"><h2 className="text-xl font-bold text-gray-800 mb-4">Distribusi Pengeluaran per Kategori</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center"><CategoryChart transactions={transactions} /><div className="bg-gray-50 p-4 rounded-lg"><h3 className="font-medium text-gray-700 mb-3">Rincian Pengeluaran</h3><ul className="space-y-2 text-sm text-gray-600">{transactions.filter(t => t.type === 'expense').reduce((acc, t) => { const e = acc.find(i => i.category === t.category); if(e) { e.amount += t.amount; } else { acc.push({ category: t.category, amount: t.amount }); } return acc; }, []).sort((a,b) => b.amount - a.amount).map((cat, idx) => (<li key={idx} className="flex justify-between items-center"><span>{cat.category}</span><span className="font-semibold text-gray-800">{formatRupiah(cat.amount)}</span></li>))}</ul></div></div></div></div>);
                     case 'reports': return <ReportsPage transactions={transactions} />;
                     default: return null;
                 }
@@ -1158,9 +1024,9 @@
             return (
                 <div className="h-full font-sans flex">
                     <CustomModal {...modalInfo} />
-                    <Sidebar activeView={activeView} setActiveView={setActiveView} isSidebarOpen={isSidebarOpen} auth={firebaseServices.auth} />
+                    <Sidebar activeView={activeView} setActiveView={setActiveView} isSidebarOpen={isSidebarOpen} />
                     <div className="flex-1 flex flex-col h-full">
-                        <header className="flex-shrink-0 bg-white/80 backdrop-blur-sm border-b p-4 md:px-6 flex items-center justify-between z-30 no-print"><button className="md:hidden p-2 text-gray-600" onClick={() => setSidebarOpen(!isSidebarOpen)}><Menu /></button><h2 className="text-2xl font-bold text-gray-800 capitalize">{activeView}</h2><div className="text-sm text-gray-500 hidden md:block">{new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div></header>
+                        <header className="flex-shrink-0 bg-white/80 backdrop-blur-sm border-b p-4 md:px-6 flex items-center justify-between z-30 no-print"><button className="md:hidden p-2 text-gray-600" onClick={() => setSidebarOpen(!isSidebarOpen)}><Menu /></button><h2 className="text-2xl font-bold text-blue-900 capitalize">{activeView}</h2><div className="text-sm text-gray-500 hidden md:block">{new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div></header>
                         <main className="flex-1 p-4 md:p-6 overflow-y-auto">{renderContent()}</main>
                     </div>
                 </div>
