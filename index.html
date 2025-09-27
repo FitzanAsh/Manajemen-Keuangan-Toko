@@ -14,7 +14,7 @@
         }
         .loader {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
+            border-top: 4px solid #3b82f6;
             border-radius: 50%;
             width: 20px;
             height: 20px;
@@ -27,27 +27,43 @@
     </style>
 </head>
 <body class="bg-gray-100">
-    <div id="app" class="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-indigo-100">
-        <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg">
+    <div id="app" class="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 to-indigo-200">
+        <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-2xl">
             <div class="flex flex-col items-center">
-               <div class="text-indigo-600">
-                   <!-- Ganti SVG dengan gambar -->
-                   <img src="images/Tokoku.png" alt="Logo Tokoku" class="w-20 h-20 object-contain">
-               </div>
-               <h1 class="text-2xl font-bold text-gray-800 mt-2">Login Admin</h1>
-               <p class="text-sm text-gray-500">Aplikasi Kasir TokoKu</p>
+               <div class="p-2">
+                 <img src="images/Tokoku.png" alt="Logo Tokoku" class="w-20 h-20 object-contain">
+                </div>
+               <h1 class="text-3xl font-bold text-gray-800 mt-4">Selamat Datang</h1>
+               <p class="text-sm text-gray-500">Login ke dasbor admin TokoKu</p>
             </div>
             <form id="login-form" class="space-y-4">
                 <div>
                     <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-                    <input id="email" type="email" class="w-full mt-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required />
+                    <div class="relative mt-1">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path></svg>
+                        </span>
+                        <input id="email" type="email" class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required placeholder="email@anda.com" />
+                    </div>
                 </div>
                 <div>
                     <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                    <input id="password" type="password" class="w-full mt-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required />
+                    <div class="relative mt-1">
+                         <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                           <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                        </span>
+                        <input id="password" type="password" class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required placeholder="Kata sandi" />
+                    </div>
+                </div>
+                <!-- Validasi Password (disembunyikan secara default) -->
+                 <div id="password-validation" class="hidden space-y-1 text-xs text-gray-500">
+                    <p class="font-medium text-gray-700">Password harus memenuhi:</p>
+                    <p id="length-check"><span class="indicator mr-2">○</span>Minimal 6 karakter</p>
+                    <p id="case-check"><span class="indicator mr-2">○</span>Kombinasi huruf besar & kecil</p>
+                    <p id="number-check"><span class="indicator mr-2">○</span>Mengandung setidaknya satu angka</p>
                 </div>
                 <div id="error-message" class="text-sm text-red-600 h-5"></div>
-                <button id="login-button" type="submit" class="w-full px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-indigo-300 flex items-center justify-center">
+                <button id="login-button" type="submit" class="w-full px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-300 disabled:cursor-not-allowed flex items-center justify-center">
                     <span id="button-text">Login</span>
                     <div id="button-loader" class="hidden loader"></div>
                 </button>
@@ -59,31 +75,19 @@
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
 
-        // --- PENTING: Ganti dengan konfigurasi Firebase Anda ---
         const firebaseConfig = {
             apiKey: "AIzaSyDFWsaoDs9FdHv3vArCQzjwEim18g7qKTU",
-                authDomain: "manajemen-keuangan-toko-98b51.firebaseapp.com",
-                projectId: "manajemen-keuangan-toko-98b51",
-                storageBucket: "manajemen-keuangan-toko-98b51.firebasestorage.app",
-                messagingSenderId: "873328631553",
-                appId: "1:873328631553:web:347f9c74669db01cee0500",
-                measurementId: "G-0NY5L2KYJ3"
+            authDomain: "manajemen-keuangan-toko-98b51.firebaseapp.com",
+            projectId: "manajemen-keuangan-toko-98b51",
+            storageBucket: "manajemen-keuangan-toko-98b51.firebasestorage.app",
+            messagingSenderId: "873328631553",
+            appId: "1:873328631553:web:347f9c74669db01cee0500",
+            measurementId: "G-0NY5L2KYJ3"
         };
-        // ---------------------------------------------------------
 
         try {
             const app = initializeApp(firebaseConfig);
             const auth = getAuth(app);
-
-            // Cek jika pengguna sudah login, langsung arahkan ke dashboard
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    window.location.href = 'pages/dashboard.html';
-                } else {
-                     // Tampilkan halaman login jika belum login
-                    document.body.style.opacity = 1;
-                }
-            });
 
             const loginForm = document.getElementById('login-form');
             const emailInput = document.getElementById('email');
@@ -92,9 +96,53 @@
             const loginButton = document.getElementById('login-button');
             const buttonText = document.getElementById('button-text');
             const buttonLoader = document.getElementById('button-loader');
+            const passwordValidationDiv = document.getElementById('password-validation');
 
+            // Cek status login
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    window.location.href = 'pages/dashboard.html';
+                } else {
+                    document.body.style.opacity = 1;
+                }
+            });
+
+            // Fungsi Validasi Password
+            const lengthCheck = document.getElementById('length-check');
+            const caseCheck = document.getElementById('case-check');
+            const numberCheck = document.getElementById('number-check');
+
+            const validatePassword = () => {
+                const value = passwordInput.value;
+                const hasMinLength = value.length >= 6;
+                const hasUpperCase = /[A-Z]/.test(value);
+                const hasLowerCase = /[a-z]/.test(value);
+                const hasNumber = /[0-9]/.test(value);
+
+                updateValidationUI(lengthCheck, hasMinLength);
+                updateValidationUI(caseCheck, hasUpperCase && hasLowerCase);
+                updateValidationUI(numberCheck, hasNumber);
+
+                return hasMinLength && hasUpperCase && hasLowerCase && hasNumber;
+            };
+
+            const updateValidationUI = (element, isValid) => {
+                const indicator = element.querySelector('.indicator');
+                if (isValid) {
+                    element.classList.remove('text-gray-500');
+                    element.classList.add('text-green-600');
+                    indicator.textContent = '✔';
+                } else {
+                    element.classList.remove('text-green-600');
+                    element.classList.add('text-gray-500');
+                    indicator.textContent = '○';
+                }
+            };
+            
+            // Handler Submit Form
             loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                
                 errorMessage.textContent = '';
                 loginButton.disabled = true;
                 buttonText.classList.add('hidden');
@@ -105,9 +153,12 @@
 
                 try {
                     await signInWithEmailAndPassword(auth, email, password);
-                    // Redirect akan ditangani otomatis oleh onAuthStateChanged di atas
                 } catch (error) {
-                    errorMessage.textContent = 'Email atau password salah. Coba lagi.';
+                    errorMessage.textContent = 'Email atau password salah. Silakan periksa kembali.';
+                    // Tampilkan validasi HANYA JIKA login gagal
+                    passwordValidationDiv.classList.remove('hidden');
+                    validatePassword(); // Jalankan validasi untuk update UI
+
                     loginButton.disabled = false;
                     buttonText.classList.remove('hidden');
                     buttonLoader.classList.add('hidden');
@@ -115,7 +166,7 @@
             });
 
         } catch(e) {
-            console.error("Error initializing Firebase. Please check your firebaseConfig.", e);
+            console.error("Error initializing Firebase:", e);
             document.getElementById('app').innerHTML = `<div class="text-center p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
                 <h3 class="font-bold">Error Konfigurasi Firebase!</h3>
                 <p>Silakan periksa \`firebaseConfig\` di dalam kode dan pastikan sudah diisi dengan benar.</p>
@@ -124,3 +175,4 @@
     </script>
 </body>
 </html>
+
