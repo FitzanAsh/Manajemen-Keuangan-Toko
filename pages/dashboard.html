@@ -117,6 +117,8 @@
         const Lightbulb = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>;
         const Target = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>;
         const PieChart = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>;
+        const ChevronLeft = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>;
+        const ChevronRight = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>;
         
         // --- Komponen Modal Kustom ---
         const CustomModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText, cancelText, isAlert }) => {
@@ -351,6 +353,74 @@
             return ( <div className="h-80"><canvas ref={chartRef}></canvas></div> );
         };
 
+        // --- Komponen Kalender ---
+        const CalendarWidget = ({ transactions }) => {
+            const { useState, useMemo } = React;
+            const [currentDate, setCurrentDate] = useState(new Date());
+
+            const transactionDates = useMemo(() => {
+                const dates = new Set();
+                transactions.forEach(tx => {
+                    if (tx.timestamp) {
+                        dates.add(tx.timestamp.toDate().toDateString());
+                    }
+                });
+                return dates;
+            }, [transactions]);
+
+            const handlePrevMonth = () => {
+                setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+            };
+
+            const handleNextMonth = () => {
+                setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+            };
+
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const monthName = currentDate.toLocaleString('id-ID', { month: 'long' });
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const startDay = (firstDay === 0) ? 6 : firstDay - 1;
+
+            const blanks = Array(startDay).fill(null);
+            const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+            const calendarDays = [...blanks, ...days];
+            const today = new Date();
+
+            return (
+                <div className="bg-blue-600 rounded-xl shadow-lg p-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-bold text-white">{monthName} {year}</h2>
+                        <div className="flex space-x-1">
+                            <button onClick={handlePrevMonth} className="p-2 rounded-full text-white hover:bg-white/20 transition-colors"><ChevronLeft /></button>
+                            <button onClick={handleNextMonth} className="p-2 rounded-full text-white hover:bg-white/20 transition-colors"><ChevronRight /></button>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-7 gap-y-2 text-center text-sm">
+                        {['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'].map(day => <div key={day} className="font-medium text-blue-200 text-xs">{day}</div>)}
+                        {calendarDays.map((day, index) => (
+                            <div key={index} className="flex justify-center items-center h-9">
+                                {day && (() => {
+                                    const date = new Date(year, month, day);
+                                    const isToday = date.toDateString() === today.toDateString();
+                                    const hasTransaction = transactionDates.has(date.toDateString());
+                                    
+                                    return (
+                                        <div className={`relative flex items-center justify-center w-8 h-8 rounded-full cursor-default transition-colors ${isToday ? 'bg-white text-blue-600 font-semibold' : 'text-white hover:bg-white/20'}`}>
+                                            {day}
+                                            {hasTransaction && <span className={`absolute bottom-1 h-1.5 w-1.5 rounded-full ${isToday ? 'bg-blue-600' : 'bg-white'}`}></span>}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
         // --- Komponen Monitoring Stok ---
         const StockMonitor = ({ products }) => {
             const lowStockItems = products.filter(p => p.stockInBaseUnit < p.minStock);
@@ -437,9 +507,9 @@
                                 <div className="space-y-2">
                                     {formData.variants.map((variant, index) => (
                                          <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-2 items-center p-2 border rounded-md">
-                                            <div><label className="block text-xs font-medium text-gray-600">Nama Varian</label><input type="text" name="unitName" value={variant.unitName} onChange={e => handleVariantChange(index, e)} className="w-full px-2 py-1 border rounded-md"/></div>
-                                            <div><label className="block text-xs font-medium text-gray-600">Harga (Rp)</label><input type="number" name="price" value={variant.price} onChange={e => handleVariantChange(index, e)} className="w-full px-2 py-1 border rounded-md"/></div>
-                                            <div><label className="block text-xs font-medium text-gray-600">Isi per Varian</label><input type="number" name="stockConversion" value={variant.stockConversion} onChange={e => handleVariantChange(index, e)} className="w-full px-2 py-1 border rounded-md"/></div>
+                                             <div><label className="block text-xs font-medium text-gray-600">Nama Varian</label><input type="text" name="unitName" value={variant.unitName} onChange={e => handleVariantChange(index, e)} className="w-full px-2 py-1 border rounded-md"/></div>
+                                             <div><label className="block text-xs font-medium text-gray-600">Harga (Rp)</label><input type="number" name="price" value={variant.price} onChange={e => handleVariantChange(index, e)} className="w-full px-2 py-1 border rounded-md"/></div>
+                                             <div><label className="block text-xs font-medium text-gray-600">Isi per Varian</label><input type="number" name="stockConversion" value={variant.stockConversion} onChange={e => handleVariantChange(index, e)} className="w-full px-2 py-1 border rounded-md"/></div>
                                         </div>
                                     ))}
                                 </div>
@@ -547,7 +617,7 @@
                                  <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Nama Produk</label><input type="text" name="name" value={newProduct.name} onChange={handleNewProductChange} className="w-full px-3 py-2 border rounded-md"/></div>
                                  <div><label className="block text-sm font-medium text-gray-700 mb-1">Satuan Dasar</label><input type="text" name="baseUnit" value={newProduct.baseUnit} onChange={handleNewProductChange} placeholder="Contoh: Kilogram, Pcs" className="w-full px-3 py-2 border rounded-md"/></div>
                                  <div><label className="block text-sm font-medium text-gray-700 mb-1">Stok Awal (dlm Satuan Dasar)</label><input type="number" name="stockInBaseUnit" value={newProduct.stockInBaseUnit} onChange={handleNewProductChange} className="w-full px-3 py-2 border rounded-md"/></div>
-                                  <div><label className="block text-sm font-medium text-gray-700 mb-1">Stok Minimum</label><input type="number" name="minStock" value={newProduct.minStock} onChange={handleNewProductChange} className="w-full px-3 py-2 border rounded-md"/></div>
+                                 <div><label className="block text-sm font-medium text-gray-700 mb-1">Stok Minimum</label><input type="number" name="minStock" value={newProduct.minStock} onChange={handleNewProductChange} className="w-full px-3 py-2 border rounded-md"/></div>
                             </div>
                             <h3 className="text-lg font-semibold text-gray-700 border-b pb-2 pt-4">Varian Produk (Satuan Jual)</h3>
                             {newProduct.variants.map((variant, index) => (
@@ -664,34 +734,34 @@
              const { useMemo } = React;
             
              const analysis = useMemo(() => {
-                if (!report) return null;
-                const { totalIncome, totalExpense, profit } = report.summary;
-                const insights = []; const recommendations = [];
-                if (profit > 0) {
-                    insights.push(`Selamat! Anda menghasilkan laba sebesar ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(profit)}.`);
-                } else {
-                    insights.push(`Perhatian, Anda mengalami kerugian sebesar ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Math.abs(profit))}.`);
-                    recommendations.push("Identifikasi pengeluaran terbesar dan cari cara untuk menekannya. Tingkatkan promosi untuk menaikkan penjualan.");
-                }
-                if (totalIncome > 0) {
-                    const profitMargin = (profit / totalIncome) * 100;
-                    insights.push(`Margin keuntungan Anda adalah ${profitMargin.toFixed(2)}%.`);
-                    if (profitMargin < 10 && profit > 0) {
-                        recommendations.push("Margin keuntungan terlihat rendah. Pertimbangkan untuk meninjau harga jual produk atau negosiasi harga beli dengan supplier.");
-                    } else if (profitMargin >= 10){
-                         recommendations.push("Margin keuntungan Anda sehat! Pertahankan performa ini dan terus cari peluang efisiensi.");
-                    }
-                }
-                if (report.expenseTransactions.length > 0) {
-                    const expenseByCategory = report.expenseTransactions.reduce((acc, tx) => { acc[tx.category] = (acc[tx.category] || 0) + tx.amount; return acc; }, {});
-                    const largestExpense = Object.entries(expenseByCategory).sort(([,a],[,b]) => b-a)[0];
-                    if (largestExpense) {
-                        insights.push(`Pengeluaran terbesar ada pada kategori "${largestExpense[0]}" sebesar ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(largestExpense[1])}.`);
-                         if ((largestExpense[1] / totalExpense) > 0.5) {
-                             recommendations.push(`Fokuskan efisiensi pada kategori "${largestExpense[0]}", karena menyumbang lebih dari separuh total pengeluaran Anda.`);
-                         }
-                    }
-                } else { insights.push("Tidak ada data pengeluaran pada periode ini."); }
+                 if (!report) return null;
+                 const { totalIncome, totalExpense, profit } = report.summary;
+                 const insights = []; const recommendations = [];
+                 if (profit > 0) {
+                     insights.push(`Selamat! Anda menghasilkan laba sebesar ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(profit)}.`);
+                 } else {
+                     insights.push(`Perhatian, Anda mengalami kerugian sebesar ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Math.abs(profit))}.`);
+                     recommendations.push("Identifikasi pengeluaran terbesar dan cari cara untuk menekannya. Tingkatkan promosi untuk menaikkan penjualan.");
+                 }
+                 if (totalIncome > 0) {
+                     const profitMargin = (profit / totalIncome) * 100;
+                     insights.push(`Margin keuntungan Anda adalah ${profitMargin.toFixed(2)}%.`);
+                     if (profitMargin < 10 && profit > 0) {
+                         recommendations.push("Margin keuntungan terlihat rendah. Pertimbangkan untuk meninjau harga jual produk atau negosiasi harga beli dengan supplier.");
+                     } else if (profitMargin >= 10){
+                          recommendations.push("Margin keuntungan Anda sehat! Pertahankan performa ini dan terus cari peluang efisiensi.");
+                     }
+                 }
+                 if (report.expenseTransactions.length > 0) {
+                     const expenseByCategory = report.expenseTransactions.reduce((acc, tx) => { acc[tx.category] = (acc[tx.category] || 0) + tx.amount; return acc; }, {});
+                     const largestExpense = Object.entries(expenseByCategory).sort(([,a],[,b]) => b-a)[0];
+                     if (largestExpense) {
+                         insights.push(`Pengeluaran terbesar ada pada kategori "${largestExpense[0]}" sebesar ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(largestExpense[1])}.`);
+                          if ((largestExpense[1] / totalExpense) > 0.5) {
+                              recommendations.push(`Fokuskan efisiensi pada kategori "${largestExpense[0]}", karena menyumbang lebih dari separuh total pengeluaran Anda.`);
+                          }
+                     }
+                 } else { insights.push("Tidak ada data pengeluaran pada periode ini."); }
                  return { insights, recommendations };
              }, [report]);
 
@@ -699,17 +769,17 @@
 
              return (
                  <div className="mt-8 border-t pt-6">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">Analisis & Prediksi Solusi</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
-                             <h3 className="flex items-center font-bold text-yellow-800 mb-2"><Lightbulb className="mr-2" /> Wawasan (Insights)</h3>
-                             <ul className="list-disc list-inside space-y-2 text-yellow-900">{analysis.insights.map((insight, i) => <li key={i}>{insight}</li>)}</ul>
-                        </div>
-                         <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-r-lg">
-                             <h3 className="flex items-center font-bold text-green-800 mb-2"><Target className="mr-2" /> Rekomendasi Aksi</h3>
-                             <ul className="list-disc list-inside space-y-2 text-green-900">{analysis.recommendations.length > 0 ? analysis.recommendations.map((rec, i) => <li key={i}>{rec}</li>) : <li>Kinerja keuangan Anda sudah baik. Terus pertahankan!</li>}</ul>
-                        </div>
-                    </div>
+                     <h2 className="text-2xl font-bold text-gray-800 mb-4">Analisis & Prediksi Solusi</h2>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
+                              <h3 className="flex items-center font-bold text-yellow-800 mb-2"><Lightbulb className="mr-2" /> Wawasan (Insights)</h3>
+                              <ul className="list-disc list-inside space-y-2 text-yellow-900">{analysis.insights.map((insight, i) => <li key={i}>{insight}</li>)}</ul>
+                         </div>
+                          <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-r-lg">
+                              <h3 className="flex items-center font-bold text-green-800 mb-2"><Target className="mr-2" /> Rekomendasi Aksi</h3>
+                              <ul className="list-disc list-inside space-y-2 text-green-900">{analysis.recommendations.length > 0 ? analysis.recommendations.map((rec, i) => <li key={i}>{rec}</li>) : <li>Kinerja keuangan Anda sudah baik. Terus pertahankan!</li>}</ul>
+                         </div>
+                     </div>
                  </div>
              )
         }
@@ -821,17 +891,17 @@
                                 </div>
                              </div>
                              {showDetails && (
-                                <div id="report-content">
-                                    <div className="p-6 flex justify-between items-center no-print border-t mt-6">
+                                 <div id="report-content">
+                                     <div className="p-6 flex justify-between items-center no-print border-t mt-6">
                                         <h2 className="text-xl font-bold text-gray-800">Rincian Laporan</h2>
                                         <div className="space-x-2">
                                             <button onClick={exportToCsv} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Export CSV</button>
                                             <button onClick={printReport} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Cetak / Simpan PDF</button>
                                         </div>
-                                    </div>
-                                    {renderTable(generatedReport.incomeTransactions, 'Rincian Pemasukan')}
-                                    {renderTable(generatedReport.expenseTransactions, 'Rincian Pengeluaran')}
-                                </div>
+                                     </div>
+                                     {renderTable(generatedReport.incomeTransactions, 'Rincian Pemasukan')}
+                                     {renderTable(generatedReport.expenseTransactions, 'Rincian Pengeluaran')}
+                                 </div>
                              )}
                         </div>
                     )}
@@ -965,21 +1035,24 @@
                 switch(activeView) {
                     case 'dashboard':
                         return (<div className="space-y-6">
-                                <div className="bg-white rounded-xl shadow-lg p-6"><h2 className="text-xl font-bold text-gray-800 mb-4">Ringkasan Keuangan</h2><div className="grid grid-cols-1 md:grid-cols-3 gap-4"><div className="bg-green-50 border border-green-200 rounded-lg p-4"><div className="flex items-center justify-between"><div><p className="text-green-600 text-sm font-medium">Total Pemasukan</p><p className="text-2xl font-bold text-green-700">{formatRupiah(income)}</p></div><div className="text-green-500"><TrendingUp /></div></div></div><div className="bg-red-50 border border-red-200 rounded-lg p-4"><div className="flex items-center justify-between"><div><p className="text-red-600 text-sm font-medium">Total Pengeluaran</p><p className="text-2xl font-bold text-red-700">{formatRupiah(expense)}</p></div><div className="text-red-500"><TrendingDown /></div></div></div><div className={`${balance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'} border rounded-lg p-4`}><div className="flex items-center justify-between"><div><p className={`${balance >= 0 ? 'text-blue-600' : 'text-orange-600'} text-sm font-medium`}>Saldo</p><p className={`text-2xl font-bold ${balance >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>{formatRupiah(balance)}</p></div><div className={`${balance >= 0 ? 'text-blue-500' : 'text-orange-500'}`}><DollarSign /></div></div></div></div></div>
+                                <div className="bg-white rounded-xl shadow-lg p-6"><h2 className="text-xl font-bold text-gray-800 mb-4">Ringkasan Keuangan</h2><div className="grid grid-cols-1 md:grid-cols-3 gap-4"><div className="bg-green-50 border border-green-200 rounded-lg p-4 transition-transform duration-200 hover:scale-105 cursor-pointer"><div className="flex items-center justify-between"><div><p className="text-green-600 text-sm font-medium">Total Pemasukan</p><p className="text-2xl font-bold text-green-700">{formatRupiah(income)}</p></div><div className="text-green-500"><TrendingUp /></div></div></div><div className="bg-red-50 border border-red-200 rounded-lg p-4 transition-transform duration-200 hover:scale-105 cursor-pointer"><div className="flex items-center justify-between"><div><p className="text-red-600 text-sm font-medium">Total Pengeluaran</p><p className="text-2xl font-bold text-red-700">{formatRupiah(expense)}</p></div><div className="text-red-500"><TrendingDown /></div></div></div><div className={`${balance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'} border rounded-lg p-4 transition-transform duration-200 hover:scale-105 cursor-pointer`}><div className="flex items-center justify-between"><div><p className={`${balance >= 0 ? 'text-blue-600' : 'text-orange-600'} text-sm font-medium`}>Saldo</p><p className={`text-2xl font-bold ${balance >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>{formatRupiah(balance)}</p></div><div className={`${balance >= 0 ? 'text-blue-500' : 'text-orange-500'}`}><DollarSign /></div></div></div></div></div>
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                     <div className="lg:col-span-2">
                                         <FinancialCharts transactions={transactions} isDashboard={true} setActiveView={setActiveView} incomeColor={incomeColor} expenseColor={expenseColor} />
                                     </div>
-                                    <div className="lg:col-span-1 space-y-6">
-                                        <div className="bg-white rounded-xl shadow-lg p-6">
-                                            <div className="flex justify-between items-center mb-4">
-                                                <h2 className="text-xl font-bold text-gray-800">Distribusi Pengeluaran</h2>
-                                                <button onClick={() => setActiveView('analytics')} className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center">Lihat Detail <span className="ml-1 font-bold">&gt;</span></button>
-                                            </div>
-                                            <CategoryChart transactions={transactions} />
-                                        </div>
-                                        <StockMonitor products={products} />
+                                    <div className="lg:col-span-1">
+                                        <CalendarWidget transactions={transactions} />
                                     </div>
+                                </div>
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    <div className="bg-white rounded-xl shadow-lg p-6">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h2 className="text-xl font-bold text-gray-800">Distribusi Pengeluaran</h2>
+                                            <button onClick={() => setActiveView('analytics')} className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center">Lihat Detail <span className="ml-1 font-bold">&gt;</span></button>
+                                        </div>
+                                        <CategoryChart transactions={transactions} />
+                                    </div>
+                                    <StockMonitor products={products} />
                                 </div>
                                 <div className="bg-white rounded-xl shadow-lg p-6"><div className="flex justify-between items-center mb-4"><h2 className="text-xl font-bold text-gray-800">Transaksi Terkini</h2><button onClick={() => { setActiveView('transactions'); setActiveTab('history'); }} className="text-sm font-medium text-blue-600 hover:text-blue-800">Lihat Semua</button></div><div className="overflow-x-auto">{transactions.slice(0, 5).length === 0 ? <div className="text-center py-8 text-gray-500"><div className="w-12 h-12 mx-auto mb-3 text-gray-300"><FileText /></div><p>Belum ada transaksi terkini</p></div> : <table className="w-full"><thead><tr className="border-b"><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Detail</th><th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Jumlah</th></tr></thead><tbody className="divide-y divide-gray-200">{transactions.slice(0, 5).map(tx => <tr key={tx.id} className="hover:bg-gray-50"><td className="px-4 py-3 text-sm text-gray-900"><div><p className="font-semibold">{tx.description}</p><p className="text-xs text-gray-500">{new Date(tx.date + 'T00:00:00').toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'})}<span className="mx-1">&bull;</span><span className={`font-medium ${ tx.type === 'income' ? 'text-green-700' : 'text-red-700'}`}>{tx.category}</span></p></div></td><td className={`px-4 py-3 text-sm font-medium text-right whitespace-nowrap ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>{tx.type === 'income' ? '+' : '-'} {formatRupiah(tx.amount)}</td></tr>)}</tbody></table>}</div></div>
                             </div>);
@@ -1014,8 +1087,8 @@
                         );
                     case 'products': return <ProductManagement products={products} />;
                      case 'analytics': return (<div className="space-y-6">
-                        <FinancialCharts transactions={transactions} incomeColor={incomeColor} expenseColor={expenseColor} setIncomeColor={setIncomeColor} setExpenseColor={setExpenseColor} />
-                        <div className="bg-white rounded-xl shadow-lg p-6"><h2 className="text-xl font-bold text-gray-800 mb-4">Distribusi Pengeluaran per Kategori</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center"><CategoryChart transactions={transactions} /><div className="bg-gray-50 p-4 rounded-lg"><h3 className="font-medium text-gray-700 mb-3">Rincian Pengeluaran</h3><ul className="space-y-2 text-sm text-gray-600">{transactions.filter(t => t.type === 'expense').reduce((acc, t) => { const e = acc.find(i => i.category === t.category); if(e) { e.amount += t.amount; } else { acc.push({ category: t.category, amount: t.amount }); } return acc; }, []).sort((a,b) => b.amount - a.amount).map((cat, idx) => (<li key={idx} className="flex justify-between items-center"><span>{cat.category}</span><span className="font-semibold text-gray-800">{formatRupiah(cat.amount)}</span></li>))}</ul></div></div></div></div>);
+                            <FinancialCharts transactions={transactions} incomeColor={incomeColor} expenseColor={expenseColor} setIncomeColor={setIncomeColor} setExpenseColor={setExpenseColor} />
+                            <div className="bg-white rounded-xl shadow-lg p-6"><h2 className="text-xl font-bold text-gray-800 mb-4">Distribusi Pengeluaran per Kategori</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center"><CategoryChart transactions={transactions} /><div className="bg-gray-50 p-4 rounded-lg"><h3 className="font-medium text-gray-700 mb-3">Rincian Pengeluaran</h3><ul className="space-y-2 text-sm text-gray-600">{transactions.filter(t => t.type === 'expense').reduce((acc, t) => { const e = acc.find(i => i.category === t.category); if(e) { e.amount += t.amount; } else { acc.push({ category: t.category, amount: t.amount }); } return acc; }, []).sort((a,b) => b.amount - a.amount).map((cat, idx) => (<li key={idx} className="flex justify-between items-center"><span>{cat.category}</span><span className="font-semibold text-gray-800">{formatRupiah(cat.amount)}</span></li>))}</ul></div></div></div></div>);
                     case 'reports': return <ReportsPage transactions={transactions} />;
                     default: return null;
                 }
@@ -1038,4 +1111,3 @@
     </script>
 </body>
 </html>
-
